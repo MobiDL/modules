@@ -328,6 +328,7 @@ task concatenateFiles {
 		String? name
 		String subString = "^[0-9]+\-"
 		String subStringReplace = ""
+		String ext = ".gz"
 
 		Int threads = 1
 		Int memoryByThreads = 768
@@ -340,18 +341,25 @@ task concatenateFiles {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseName = if defined(name) then name else sub(basename(in[0]),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
+	# String baseName = if defined(name) then name else sub(basename(in[0]),subString,subStringReplace)
+	# String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
 
 	String cmd_exe = if defined(exe) then exe else if gzip then "zcat" else "cat"
+	String compress = if gzip then " | gzip " else ""
+
+	String baseNameTemp = if defined(name) then name else sub(basename(in[0]),subString,subStringReplace)
+	String baseName = if gzip then sub(baseNameTemp,ext,"") else "~{baseNameTemp}~{ext}"
+	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
 
 	command <<<
-
+		echo "name: ~{name}"
+		echo "baseNameTemp: ~{baseNameTemp}"
+		echo "baseName: ~{baseName}"
 		if [[ ! -d $(dirname ~{outputFile}) ]]; then
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		~{cmd_exe} ~{sep=" " in} > ~{outputFile}
+		~{cmd_exe} ~{sep=" " in} ~{compress} > "~{outputFile}"
 
 	>>>
 

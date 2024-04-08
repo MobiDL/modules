@@ -100,7 +100,6 @@ task mapOnt {
 
 		Float filterOutFracMin = 0.0002
 		Int stopChain = 5000
-		Int maxIntronLen = 200000
 		Int minMinimizerChain = 3
 		Int minChainScore = 40
 		Float minSec2Prim = 0.8
@@ -154,7 +153,6 @@ task mapOnt {
 			~{default="" "-d " + dumpIndexFile} \
 			-f ~{filterOutFracMin} \
 			-g ~{stopChain} \
-			-r ~{maxIntronLen} \
 			-n ~{minMinimizerChain} \
 			-m ~{minChainScore} \
 			-p ~{minSec2Prim} \
@@ -246,10 +244,6 @@ task mapOnt {
 		}
 		stopChain: {
 			description: 'stop chain enlongation if there are no minimizers in INT-bp [default: 5000]',
-			category: 'Mapping'
-		}
-		maxIntronLen: {
-			description: 'bandwidth used in chaining and DP-based alignment [default: 500]',
 			category: 'Mapping'
 		}
 		minMinimizerChain: {

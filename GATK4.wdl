@@ -281,6 +281,7 @@ task depthOfCoverage {
 		Array[String]? javaOptions
 
 		File in
+		File bamIndex
 		File intervals
 		String? outputPath
 		String? prefix
