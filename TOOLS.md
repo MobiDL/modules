@@ -11,8 +11,8 @@
 	</thead>
 	<tbody>
 		<tr>
-			<td rowspan="12">Utilities</td>
-			<td rowspan="12">NA</td>
+			<td rowspan="13">Utilities</td>
+			<td rowspan="13">NA</td>
 			<td>findFiles</td>
 			<td>0.0.2</td>
 		</tr>
@@ -58,6 +58,56 @@
 		</tr>
 		<tr>
 			<td>getColumn</td>
+			<td>0.0.2</td>
+		</tr>
+		<tr>
+			<td>filterBEDOnName</td>
+			<td>0.0.2</td>
+		</tr>
+		<tr>
+			<td rowspan="11">Anacore Utils</td>
+			<td rowspan="11">3.3.0</td>
+			<td>nonOverlappingDesign</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
+			<td>addAmpliRG</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
+			<td>areaCoverage</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
+			<td>splitBAMByRG</td>
+			<td>0.0.3</td>
+		</tr>
+		<tr>
+			<td>filterVCFPrimers</td>
+			<td>0.0.2</td>
+		</tr>
+		<tr>
+			<td>addRGOnBAM</td>
+			<td>0.0.2</td>
+		</tr>
+		<tr>
+			<td>mergeVCFAmpli</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
+			<td>meltVCFSamples</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
+			<td>fixVCallerVCF</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
+			<td>filterVCFOnCount</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
+			<td>sortVCF</td>
 			<td>0.0.1</td>
 		</tr>
 		<tr>
@@ -149,6 +199,12 @@
 			<td>0.0.1</td>
 		</tr>
 		<tr>
+			<td rowspan="1">Fastp</td>
+			<td rowspan="1">v0.20.1</td>
+			<td>fastp_pe</td>
+			<td>0.0.1</td>
+		</tr>
+		<tr>
 			<td rowspan="3">FastQC</td>
 			<td rowspan="3">v0.11.9</td>
 			<td>fastqc</td>
@@ -198,7 +254,7 @@
 		</tr>
 		<tr>
 			<td>GatherVcfFiles</td>
-			<td>0.0.2</td>
+			<td>0.0.3</td>
 		</tr>
 		<tr>
 			<td>LeftAlignIndels</td>
@@ -378,7 +434,7 @@
 		</tr>
 		<tr>
 			<td>depth</td>
-			<td>0.0.1</td>
+			<td>0.0.4</td>
 		</tr>
 		<tr>
 			<td rowspan="2">Sed</td>
@@ -394,7 +450,7 @@
 			<td>SeqKit</td>
 			<td>0.16.0</td>
 			<td>seq_filter</td>
-			<td>0.0.2</td>
+			<td>0.0.1</td>
 		</tr>
 		<tr>
 			<td>snpEff</td>
@@ -422,15 +478,15 @@
 			<td rowspan="3">Vardict-java</td>
 			<td rowspan="3">1.8.2</td>
 			<td>vardictSoloAmplicons</td>
-			<td>0.0.1</td>
+			<td>0.0.4</td>
 		</tr>
 		<tr>
 			<td>teststrandbias</td>
-			<td>0.0.1</td>
+			<td>0.0.2</td>
 		</tr>
 		<tr>
 			<td>var2vcf_valid</td>
-			<td>0.0.1</td>
+			<td>0.0.2</td>
 		</tr>
 		<tr>
 			<td rowspan="2">VEP</td>

@@ -76,6 +76,132 @@ task get_version {
 #	- Since minimap2 replace BWA for long-reads it seems deprecated to use "-x"
 #	- It seems unnecessary to change all options in the human context
 
+task memnosort {
+	meta {
+		author: "Olivier Ardouin"
+		email: "o-ardouin(at)chu-montpellier.fr"
+		version: "0.0.1"
+		date: "2021-11-23"
+	}
+
+	input {
+		String path_exe = "bwa"
+
+		String? outputPath
+		String? sample
+		String subString = "(_S[0-9]+)?(_L[0-9][0-9][0-9])?(_R[12])?(_[0-9][0-9][0-9])?.(fastq|fq)(.gz)?"
+		String subStringReplace = ""
+
+		File fastqR1
+		File? fastqR2
+
+		File refFasta
+		File refFai
+		File refAmb
+		File refAnn
+		File refBwt
+		File refPac
+		File refSa
+
+		String platformReads = "ILLUMINA"
+
+		Boolean markShorter = true
+		Int minScore = 30
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseName = if defined(sample) then sample else sub(basename(fastqR1),subString,subStringReplace)
+	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}.sam" else "~{baseName}.sam"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputFile}) ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} mem \
+			-R "@RG\tID:~{baseName}\tSM:~{baseName}\tPL:~{platformReads}" \
+			-T ~{minScore} \
+			~{true="-M" false="" markShorter} \
+			-t ~{threads} \
+			~{refFasta} \
+			~{fastqR1} ~{default="" fastqR2} \
+	>>>
+
+	output {
+		File outputFile = stdout()
+	}
+
+	runtime {
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "bwa"]',
+			category: 'System'
+		}
+		sample: {
+			description: 'Sample name to use for output file name [default: sub(basename(fastqR1),subString,"")]',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Substring to remove to get sample name [default: "(_S[0-9]+)?(_L[0-9][0-9][0-9])?(_R[12])?(_[0-9][0-9][0-9])?.(fastq|fq)(.gz)?"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'subString replace by this string [default: ""]',
+			category: 'Output path/name option'
+		}
+		fastqR1: {
+			description: 'Input file with reads 1 (fastq, fastq.gz, fq, fq.gz).',
+			category: 'Required'
+		}
+		fastqR2: {
+			description: 'Input file with reads 2 (fastq, fastq.gz, fq, fq.gz).',
+			category: 'Tool option'
+		}
+		refFasta: {
+			description: 'Path to the reference file (format: fasta)',
+			category: 'Required'
+		}
+		platformReads: {
+			description: 'Type of plateform that produce reads [default: ILLUMINA]',
+			category: 'Tool option'
+		}
+		markShorter: {
+			description: 'Mark shorter split hits as secondary (for Picard compatibility). [default: true]',
+			category: 'Tool option'
+		}
+		minScore: {
+			description: 'Don’t output alignment with score lower than this value. [default: 30]',
+			category: 'Tool option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+	}
+}
+
 task mem {
 	meta {
 		author: "Charles VAN GOETHEM"

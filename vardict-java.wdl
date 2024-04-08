@@ -20,8 +20,8 @@ task vardictSoloAmplicons {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-10-01"
+		version: "0.0.4"
+		date: "2021-05-14"
 	}
 
 	input {
@@ -47,10 +47,10 @@ task vardictSoloAmplicons {
 		Int columnEnd = 3
 		Int? columnSegEnd
 		Int columnAnn = 4
-		String delimiter = "\t"
+		String delimiter = "\"\\t\""
 		Boolean zeroBased = false
 
-		Boolean 3primeIndels = false
+		Boolean threePrimeIndels = false
 		Int ampMaxEdges = 10
 		Float ampMinOverlapPercent = 0.95
 		Int STD = 4
@@ -132,7 +132,7 @@ task vardictSoloAmplicons {
 			-d ~{delimiter} \
 			-z ~{true="1" false="0" zeroBased} \
 			-N ~{baseName} \
-			~{true="-3" false="" 3primeIndels} \
+			~{true="-3" false="" threePrimeIndels} \
 			--amplicon ~{ampMaxEdges}:~{ampMinOverlapPercent} \
 			-A ~{STD} \
 			-B ~{minReadsSB} \
@@ -173,8 +173,7 @@ task vardictSoloAmplicons {
 			~{true="-p" false="" pileup} \
 			~{default="" "-Z " + downsampling} \
 			-th ~{threads} \
-			~{target} \
-			> ~{outputFile}
+			~{target} > ~{outputFile}
 
 	>>>
 
@@ -260,7 +259,7 @@ task vardictSoloAmplicons {
 			description: 'Indicate whether coordinates are zero-based, as IGV uses. [default: false]',
 			category: 'Tool option'
 		}
-		3primeIndels: {
+		threePrimeIndels: {
 			description: 'Indicate to move indels to 3-prime if alternative alignment can be achieved. [default: false]',
 			category: 'Tool option'
 		}
@@ -443,21 +442,18 @@ task teststrandbias {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-10-01"
+		version: "0.0.2"
+		date: "2021-05-10"
 	}
 
 	input {
 		String path_exe = "teststrandbias.R"
 
 		File in
-		File index
 		String? outputPath
 		String? name
-		String ext = ".txt"
-		String suffix = ".strandbias"
 		String subString = ".txt"
-		String subStringReplace = ""
+		String subStringReplace = ".strandbias.txt"
 
 		Int threads = 1
 		Int memoryByThreads = 768
@@ -471,7 +467,7 @@ task teststrandbias {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}~{ext}" else "~{baseName}~{suffix}~{ext}"
+	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
 
 	command <<<
 
@@ -506,19 +502,15 @@ task teststrandbias {
 			category: 'Output path/name option'
 		}
 		in: {
-			description: 'Input reads (format: fastq, fastq.gz)',
+			description: 'Output of vardict-java.',
 			category: 'Required'
 		}
-		suffix: {
-			description: 'Suffix to add to the output [default: .adaptersTrim]',
-			category: 'Output path/name option'
-		}
 		subString: {
-			description: 'Extension to remove from the input file [default: "(_S[0-9]+)?(_L[0-9][0-9][0-9])?(_R[12])?(_[0-9][0-9][0-9])?.(fastq|fq)(.gz)?"]',
+			description: 'Extension to remove from the input file [default: ".txt"]',
 			category: 'Output path/name option'
 		}
 		subStringReplace: {
-			description: 'subString replace by this string [default: ""]',
+			description: 'subString replace by this string [default: ".strandbias.txt"]',
 			category: 'Output path/name option'
 		}
 		threads: {
@@ -540,8 +532,8 @@ task var2vcf_valid {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-10-02"
+		version: "0.0.2"
+		date: "2021-05-11"
 	}
 
 	input {
@@ -592,8 +584,6 @@ task var2vcf_valid {
 
 	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
 	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}~{ext}" else "~{baseName}~{suffix}~{ext}"
-
-	Boolean defAdaptors = defined(adaptors)
 
 	command <<<
 

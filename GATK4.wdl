@@ -2014,11 +2014,234 @@ task haplotypeCaller {
 	}
 }
 
+task haplotypeCallerMultiple {
+	meta {
+		author: "Olivier ARDOUIN"
+		email: "o-ardouin(at)chu-montpellier.fr"
+		version: "0.0.7"
+		date: "2021-10-11"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		Array[File] in
+		Array[File] idx
+		String? outputPath
+		String? name
+		String subString = "\.(sam|bam|cram)$"
+		String subStringReplace = ".haplotypeCaller.vcf"
+		String subStringIntervals = "([0-9]+)-scattered.interval_list$"
+		String subStringReplaceIntervals = ".$1"
+
+		File refFasta
+		File refFai
+		File refDict
+
+		## Annotation
+		Boolean annotateNumAlleleDiscovered = false
+		File? dbsnp
+		File? dbsnpIdx
+
+		## intervals
+		File? intervals
+		Int intervalsPadding = 0
+		Boolean overlappingRule = false
+		Boolean intersectionRule = false
+
+		## filters
+		Boolean useSoftClipped = false
+		Int ploidy = 2
+		Float standCallConf = 30.0
+
+		String smithAndWaterman = "FASTEST_AVAILABLE"
+		String emitRefConfidence = "NONE"
+
+		## output
+		Boolean createVCFIdx = true
+		Boolean createVCFMD5 = true
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseNameIntervals = if defined(intervals) then intervals else ""
+
+	String getIntervalsBase = if defined(intervals) then sub(basename(baseNameIntervals),subStringIntervals,subStringReplaceIntervals) else ""
+
+	String baseName = if defined(name) then name + getIntervalsBase + subStringReplace else sub(basename(in[0]),subString,getIntervalsBase + subStringReplace)
+	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputFile}) ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} HaplotypeCaller \
+			--input ~{sep=' --input  ' in} \
+			--reference ~{refFasta} \
+			--sequence-dictionary ~{refDict} \
+			--annotate-with-num-discovered-alleles ~{true="true" false="false" annotateNumAlleleDiscovered} \
+			~{default="" "--dbsnp " + dbsnp} \
+			~{default="" "--intervals " + intervals} \
+			--interval-padding ~{intervalsPadding} \
+			--interval-merging-rule ~{true="OVERLAPPING_ONLY" false="ALL" overlappingRule} \
+			--interval-set-rule ~{true="INTERSECTION" false="UNION" intersectionRule} \
+			--dont-use-soft-clipped-bases ~{true="false" false="true" useSoftClipped} \
+			--sample-ploidy ~{ploidy} \
+			--standard-min-confidence-threshold-for-calling ~{standCallConf} \
+			--smith-waterman ~{smithAndWaterman} \
+			--emit-ref-confidence ~{emitRefConfidence} \
+			~{true="--create-output-variant-index" false="" createVCFIdx} \
+			~{true="--create-output-variant-md5" false="" createVCFMD5} \
+			--output ~{outputFile}
+
+	>>>
+
+	output {
+		File outputFile = outputFile
+		File? outputFileIdx = outputFile + ".idx"
+		File? outputFileMD5 = outputFile + ".md5"
+	}
+
+	runtime {
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		in: {
+			description: 'BAM file.',
+			category: 'Required'
+		}
+		idx: {
+			description: 'Index of the BAM file.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where files will be generated.',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file name [default: base on the input file].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Substring to replace (e.g. remove extension) [default: "\.(sam|bam|cram)$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'Substring used to replace (e.g. add a suffix) [default: ".haplotypeCaller.vcf"]',
+			category: 'Output path/name option'
+		}
+		subStringIntervals: {
+			description: 'Substring to replace for interval file (e.g. remove extension) [default: "([0-9]+)-scattered.interval_list$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplaceIntervals: {
+			description: 'Substring used to replace for interval file (e.g. add a suffix) [default: ".$1"]',
+			category: 'Output path/name option'
+		}
+		refFasta: {
+			description: 'Path to the reference file (format: fasta)',
+			category: 'Required'
+		}
+		refFai: {
+			description: 'Path to the reference file index (format: fai)',
+			category: 'Required'
+		}
+		refDict: {
+			description: 'Path to the reference file dict (format: dict)',
+			category: 'Required'
+		}
+		annotateNumAlleleDiscovered: {
+			description: 'If provided, we will annotate records with the number of alternate alleles that were discovered (but not necessarily genotyped) at a given site [default: false]',
+			category: 'Option: Annotation'
+		}
+		dbsnp: {
+			description: 'Path to the file containing dbsnp (format: vcf)',
+			category: 'Option: Annotation'
+		}
+		dbsnpIdx: {
+			description: 'Path to the index of dbsnp file (format: tbi)',
+			category: 'Option: Annotation'
+		}
+		intervals: {
+			description: 'Path to a file containing genomic intervals over which to operate. (format intervals list: chr1:1000-2000)',
+			category: 'Option: Intervals'
+		}
+		intervalsPadding: {
+			description: 'Amount of padding (in bp) to add to each interval you are including. [default: 0]',
+			category: 'Option: Intervals'
+		}
+		overlappingRule: {
+			description: 'Interval merging rule for abutting intervals set to OVERLAPPING_ONLY [default: false => ALL]',
+			category: 'Option: Intervals'
+		}
+		intersectionRule: {
+			description: 'Set merging approach to use for combining interval inputs to INTERSECTION [default: false => UNION]',
+			category: 'Option: Intervals'
+		}
+		useSoftClipped: {
+			description: 'Analyze soft clipped bases in the reads [default: false]',
+			category: 'Option: filters'
+		}
+		ploidy: {
+			description: 'Ploidy (number of chromosomes) per sample. [default: 2]',
+			category: 'Option: filters'
+		}
+		standCallConf: {
+			description: 'The minimum phred-scaled confidence threshold at which variants should be called [default: 30.0]',
+			category: 'Option: filters'
+		}
+		smithAndWaterman: {
+			description: 'Which Smith-Waterman implementation to use, generally FASTEST_AVAILABLE is the right choice (possible values: FASTEST_AVAILABLE, AVX_ENABLED, JAVA) [default: FASTEST_AVAILABLE]',
+			category: 'Option: Algo'
+		}
+		emitRefConfidence: {
+			description: 'Mode for emitting reference confidence scores (possible values: NONE, BP_RESOLUTION, GVCF) [default: None]',
+			category: 'Option: Algo'
+		}
+		createVCFIdx: {
+			description: 'If true, create a VCF index when writing a coordinate-sorted VCF file. [Default: true]',
+			category: 'Option: output'
+		}
+		createVCFMD5: {
+			description: 'If true, create a a MD5 digest any VCF file created. [Default: true]',
+			category: 'Option: output'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+	}
+}
+
 task gatherVcfFiles {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
+		version: "0.0.3"
 		date: "2020-12-17"
 	}
 
@@ -2027,9 +2250,9 @@ task gatherVcfFiles {
 
 		Array[File]+ in
 		String? outputPath
-		String? name
-		String subString = "(\.[0-9]+)?\.(vcf)$"
-		String subStringReplace = ".gather"
+		String? name ### Warning if name defined and not suffixed by .vcf ou .vcf.gz ... it will crash
+		String subString = "(\.[0-9]+)?(\.[a-zA-Z_-]+)?\.(vcf)$"
+		String subStringReplace = "$2.gather.vcf"
 
 		Boolean reorder = true
 
@@ -2046,7 +2269,7 @@ task gatherVcfFiles {
 
 	String firstFile = basename(in[0])
 	String baseName = if defined(name) then name else sub(basename(firstFile),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}.vcf" else "~{baseName}.vcf"
+	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
 
 	command <<<
 
@@ -2089,11 +2312,11 @@ task gatherVcfFiles {
 			category: 'Output path/name option'
 		}
 		subString: {
-			description: 'Substring to replace (e.g. remove extension) [default: "(\.[0-9]+)?\.vcf$"]',
+			description: 'Substring to replace (e.g. remove extension) [default: "(\.[0-9]+)?(\.[a-zA-Z_-]+)?\.(vcf)$"]',
 			category: 'Output path/name option'
 		}
 		subStringReplace: {
-			description: 'Substring used to replace (e.g. add a suffix) [default: ".gather"]',
+			description: 'Substring used to replace (e.g. add a suffix) [default: "$2.gather.vcf"]',
 			category: 'Output path/name option'
 		}
 		reorder: {
@@ -3066,6 +3289,213 @@ task markDuplicates {
 		createIndex: {
 			description: 'Whether to create a BAM index when writing a coordinate-sorted BAM file. [Default: true]',
 			category: 'Option: GATK common'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+	}
+}
+
+task CollectInsertSizeMetrics {
+	meta {
+		author: "Olivier Ardouin"
+		email: "o-ardouin(at)chu-montpellier.fr"
+		version: "0.0.1"
+		date: "2020-10-11"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		File in
+		Float MinPct = 0.5
+		String? outputPath
+		String? name
+		String suffix = ".InsertSizeMetrics"
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseName = if defined(name) then name else sub(basename(in),"(.*)\.(sam|bam|cram)$","$1")
+	String outputBase = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}" else "~{baseName}~{suffix}"
+	String outputHistogram = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}.pdf" else "~{baseName}~{suffix}.pdf"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputBase}) ]]; then
+			mkdir -p $(dirname ~{outputBase})
+		fi
+
+		~{path_exe} CollectInsertSizeMetrics \
+			--INPUT ~{in} \
+			--Histogram_FILE ~{outputHistogram} \
+			--OUTPUT ~{outputBase} \
+			--MINIMUM_PCT ~{MinPct}
+
+	>>>
+
+	output {
+		File insertSizeMetrics = "~{outputBase}"
+		File insertSizeMetricsHistogram = "~{outputHistogram}"
+	}
+
+	runtime {
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		in: {
+			description: 'BAM to process.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where bam will be generated.',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			category: 'Output path/name option'
+		}
+		suffix: {
+			description: 'Suffix to add for the output file (e.g sample.suffix.bam)[default: ".InsertSizeMetrics"]',
+			category: 'Option'
+		}
+		MinPct : {
+			description: 'When generating the Histogram, discard any data categories (out of FR, TANDEM, RF) that have fewer than this percentage of overall reads. (Float; Range: 0 to 1). [default: 0.5]'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+	}
+}
+
+task CollectHsMetrics {
+	meta {
+		author: "Olivier Ardouin"
+		email: "o-ardouin(at)chu-montpellier.fr"
+		version: "0.0.1"
+		date: "2020-10-14"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		File in
+		String? outputPath
+		String? name
+		String suffix = ".HSMetrics.txt"
+
+		File refFasta
+		File refFai
+		File targetIntervalList
+		File? baitIntervalList
+
+		Int CoverageCap = 1000
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	File baitList = if defined(baitIntervalList) then baitIntervalList else targetIntervalList
+
+	String baseName = if defined(name) then name else sub(basename(in),"(.*)\.(sam|bam|cram)$","$1")
+	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}" else "~{baseName}~{suffix}"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputFile}) ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} CollectHsMetrics \
+			--INPUT ~{in} \
+			--REFERENCE_SEQUENCE ~{refFasta} \
+			--TARGET_INTERVALS ~{targetIntervalList} \
+			--BAIT_INTERVALS ~{baitList} \
+			--OUTPUT ~{outputFile} \
+			--COVERAGE_CAP ~{CoverageCap}
+
+	>>>
+
+	output {
+		File HSMetrics = "~{outputFile}"
+	}
+
+	runtime {
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		in: {
+			description: 'BAM to process.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where metrics will be generated.',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			category: 'Output path/name option'
+		}
+		suffix: {
+			description: 'Suffix to add for the output file (e.g sample.suffix.bam)[default: ".HSMetrics.txt"]',
+			category: 'Option'
+		}
+		refFasta: {
+			description: 'Fasta reference file',
+			category: 'Required'
+		}
+		targetIntervalList: {
+			description: 'target IntervalList file',
+			category: 'Required'
+		}
+		baitIntervalList: {
+			description: 'bait IntervalList file [default = targetIntervalList]',
+			category: 'Optional'
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',

@@ -18,10 +18,10 @@ version 1.0
 
 task get_version {
 	meta {
-		author: "Charles VAN GOETHEM"
-		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-11-20"
+		author: "Olivier ARDOUIN"
+		email: "o-ardouin(at)chu-montpellier.fr"
+		version: "0.0.2"
+		date: "2022-03-16"
 	}
 
 	input {
@@ -43,7 +43,7 @@ task get_version {
 	>>>
 
 	output {
-		String version = read_string(stdout())
+		String version = read_string(stderr())
 	}
 
 	runtime {
