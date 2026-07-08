@@ -18,10 +18,10 @@ version 1.0
 
 task get_version {
 	meta {
-		author: "Oliver Ardouin"
+		authors: ["Oliver Ardouin", "Charles Van Goethem"]
 		email: "o-ardouin(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2022-03-16"
+		version: "0.1.0"
+		date: "2026-07-08"
 	}
 
 	input {
@@ -30,6 +30,7 @@ task get_version {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+        String apptainer_img = "fastp:1.3.6"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -43,12 +44,13 @@ task get_version {
 	>>>
 
 	output {
-		String version = read_string(stderr())
+		String version = stdout()
 	}
 
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+        docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -68,15 +70,19 @@ task get_version {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: fastp:1.3.6]',
+			category: 'System'
+		}
 	}
 }
 
-task fastp_pe {
+task fastp {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-07-29"
+		version: "0.1.0"
+		date: "2026-07-08"
 	}
 
 	input {
@@ -96,6 +102,7 @@ task fastp_pe {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+        String apptainer_img = "fastp:1.3.6"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -114,6 +121,7 @@ task fastp_pe {
 		fi
 
 		~{path_exe} \
+			--thread ~{threads} \
 			--in1 ~{fastqR1} \
 			--in2 ~{fastqR2} \
 			~{true="--unpaired1" false="" unpaired1} \
@@ -122,10 +130,9 @@ task fastp_pe {
 			--out2 ~{outputBase}.R2.fq.gz \
 			--report_title ~{baseName} \
 			--json ~{outputBase}.json \
-			--html ~{outputBase}.html \
-			--thread ~{threads}
-
-	>>>
+			--html ~{outputBase}.html
+    
+    >>>
 
 	output {
 		File FastpR1 = "~{outputBase}.R1.fq.gz"
@@ -137,6 +144,7 @@ task fastp_pe {
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+        docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -186,6 +194,10 @@ task fastp_pe {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: fastp:1.3.6]',
 			category: 'System'
 		}
 	}
