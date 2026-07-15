@@ -42,7 +42,7 @@
 |               |              | qualityTrimming         | 0.0.2   |
 |               |              | hardTrimming            | 0.0.3   |
 | DWGSim        | 0.1.11       | simulateReadsIllumina   | 0.0.1   |
-| Fastp         | v1.3.6       | fastp                   | 0.1.0   |
+| Fastp         | v1.3.6       | fastp                   | 0.1.1   |
 | FastQC        | v0.11.9      | fastqc                  | 0.0.1   |
 |               |              | fastqcNano              | 0.0.1   |
 |               |              | fastqcCasava            | 0.0.1   |

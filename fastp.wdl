@@ -81,8 +81,8 @@ task fastp {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-08"
+		version: "0.1.1"
+		date: "2026-07-15"
 	}
 
 	input {
@@ -112,25 +112,25 @@ task fastp {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(sample) then sample else sub(basename(fastqR1),subString,subStringReplace)
-	String outputBase = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
+	String outputBase = if defined(outputPath) then "~{outputPath}/fastp/~{baseName}" else "fastp/~{baseName}"
 
 	command <<<
 
-		if [[ ! -d ~{outputPath} ]]; then
-			mkdir -p ~{outputPath}
+		if [[ ! -d ~{outputPath}/fastp ]]; then
+			mkdir -p ~{outputPath}/fastp
 		fi
 
 		~{path_exe} \
 			--thread ~{threads} \
-			--in1 ~{fastqR1} \
-			--in2 ~{fastqR2} \
+			--in1 "~{fastqR1}" \
+			--in2 "~{fastqR2}" \
 			~{true="--unpaired1" false="" unpaired1} \
 			~{true="--unpaired2" false="" unpaired2} \
-			--out1 ~{outputBase}.R1.fq.gz \
-			--out2 ~{outputBase}.R2.fq.gz \
-			--report_title ~{baseName} \
-			--json ~{outputBase}.json \
-			--html ~{outputBase}.html
+			--out1 "~{outputBase}.R1.fq.gz" \
+			--out2 "~{outputBase}.R2.fq.gz" \
+			--report_title "~{baseName}" \
+			--json "~{outputBase}.json" \
+			--html "~{outputBase}.html"
     
     >>>
 
@@ -142,6 +142,7 @@ task fastp {
 	}
 
 	runtime {
+        bind_opt: "~{outputPath}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
         docker: "~{apptainer_img}"
@@ -149,7 +150,7 @@ task fastp {
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "fastqc"]',
+			description: 'Path used as executable [default: "fastp"]',
 			category: 'System'
 		}
 		outputPath: {
