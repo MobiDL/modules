@@ -44,7 +44,7 @@ task get_version {
 	>>>
 
 	output {
-		String version = "minibwa: ~{stdout()}"
+		String version = "minibwa ~{stdout()}"
 	}
 
 	runtime {
@@ -71,7 +71,7 @@ task get_version {
 			category: 'System'
 		}
 		apptainer_img: {
-			description: 'Sets the apptainer image you want to use [default: fastp:1.3.6]',
+			description: 'Sets the apptainer image you want to use [default: minibwa:0.3]',
 			category: 'System'
 		}
 	}
