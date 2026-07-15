@@ -69,6 +69,7 @@
 |               |              | MarkDuplicates          | 0.0.1   |
 | Longshot      | 0.4.1        | longshot                | 0.0.3   |
 | MiniMap2      | 1.1.2        | mapOnt                  | 0.0.1   |
+| minibwa       | 0.3          | map                     | 0.0.1a  |
 | MPA           | 1.1.2        | mpa                     | 0.0.1   |
 | NanoPlot      | 1.36.2       | nanoplot_summary        | 0.0.1   |
 |               |              | nanoplot_fastq          | 0.0.1   |
