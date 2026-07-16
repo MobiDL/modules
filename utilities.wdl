@@ -1765,3 +1765,50 @@ task mkDir {
 		}
 	}
 }
+
+task rm_files {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.0.1"
+		date: "2026-07-15"
+	}
+
+	input {
+		Array[String] files
+
+		Int threads = 1
+		Int memoryByThreads = 768
+	}
+
+	command <<<
+		declare -a arr=("~{sep='" "' files}") 
+		for f in "${arr[@]}"; do 
+			if [ -d ${f} ]; then
+				rm -r "${f}"
+			else
+				rm "${f}"
+			fi
+		done
+	>>>
+
+	runtime {
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreads}"
+	}
+
+	parameter_meta {
+		files: {
+			description: 'Array of files/directory to remove',
+			category: 'Input'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+	}
+}

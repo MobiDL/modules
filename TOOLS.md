@@ -13,6 +13,7 @@
 |               |              | bedPrimer2woutPrimer    | 0.0.1   |
 |               |              | getColumn               | 0.0.2   |
 |               |              | filterBEDOnName         | 0.0.2   |
+|               |              | rm_files                | 0.0.1   |
 | Anacore Utils | 3.3.0        | nonOverlappingDesign    | 0.0.1   |
 |               |              | addAmpliRG              | 0.0.1   |
 |               |              | areaCoverage            | 0.0.1   |
