@@ -1,7 +1,7 @@
 version 1.0
 
 # MobiDL 2.0 - MobiDL 2 is a collection of tools wrapped in WDL to be used in any WDL pipelines.
-# Copyright (C) 2021 MoBiDiC
+# Copyright (C) 2026 MoBiDiC
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,8 +20,8 @@ task get_version {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-11-20"
+		version: "0.1.0"
+		date: "2026-07-15"
 	}
 
 	input {
@@ -30,6 +30,7 @@ task get_version {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "samtools:1.23.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -39,7 +40,7 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		~{path_exe} --version
+		~{path_exe} --version | head -1
 	>>>
 
 	output {
@@ -49,6 +50,7 @@ task get_version {
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -68,6 +70,10 @@ task get_version {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: samtools:1.23.1]',
+			category: 'System'
+		}
 	}
 }
 
@@ -75,8 +81,8 @@ task sort {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-07-30"
+		version: "0.1.0"
+		date: "2026-07-15"
 	}
 
 	input {
@@ -96,6 +102,7 @@ task sort {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "samtools:1.23.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -105,7 +112,7 @@ task sort {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(name) then name else sub(basename(in),"(\.sam|\.bam|\.cram)","")
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}.~{format}" else "~{baseName}~{suffix}.~{format}"
+	String outputFile = if defined(outputPath) then "~{outputPath}/samtools/~{baseName}~{suffix}.~{format}" else "samtools/~{baseName}~{suffix}.~{format}"
 
 	command <<<
 
@@ -118,21 +125,23 @@ task sort {
 			~{true="-n" false="" sortByReadName} \
 			~{default="" "-t " + tag} \
 			--output-fmt ~{format} \
-			~{default="" "--reference " + refFasta} \
+			~{default="" "--reference \"" + refFasta + "\""} \
 			--threads ~{threads - 1} \
 			-m ~{memoryByThreadsMb}M \
-			-o ~{outputFile} \
-			~{in}
+			-o "~{outputFile}" \
+			"~{in}"
 
 	>>>
 
 	output {
-		File outputFile = outputFile
+		File outputFile = "~{outputFile}"
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -186,6 +195,10 @@ task sort {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: samtools:1.23.1]',
 			category: 'System'
 		}
 	}

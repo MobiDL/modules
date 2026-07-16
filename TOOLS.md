@@ -84,10 +84,10 @@
 |               |              | markdup                 | 0.0.1   |
 |               |              | sort                    | 0.0.2   |
 |               |              | view                    | 0.0.2   |
-| Samtools      | 1.10         | bedcov                  | 0.0.1   |
+| Samtools      | 1.23.1       | sort                    | 0.1.0   |
+|               | 1.10         | bedcov                  | 0.0.1   |
 |               |              | index                   | 0.0.1   |
 |               |              | flagstat                | 0.0.1   |
-|               |              | sort                    | 0.0.1   |
 |               |              | dict                    | 0.0.1   |
 |               |              | view                    | 0.0.1   |
 |               |              | faidx                   | 0.0.1   |
