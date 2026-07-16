@@ -20,8 +20,8 @@ task get_version {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-11-20"
+		version: "0.1.0"
+		date: "2026-07-16"
 	}
 
 	input {
@@ -30,6 +30,7 @@ task get_version {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "GATK4:4.6.2.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -39,7 +40,7 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		~{path_exe} --version
+		~{path_exe} --version | head -2 | head -1
 	>>>
 
 	output {
@@ -49,6 +50,7 @@ task get_version {
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -66,6 +68,10 @@ task get_version {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: GATK4:4.6.2.0]',
 			category: 'System'
 		}
 	}
@@ -503,8 +509,8 @@ task splitIntervals {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-08-06"
+		version: "0.1.0"
+		date: "2026-07-16"
 	}
 
 	input {
@@ -517,8 +523,8 @@ task splitIntervals {
 		String subStringReplace = "-split"
 
 		File refFasta
-		File refFai
-		File refDict
+		File refFai = refFasta + ".fai"
+		File refDict = sub(refFasta, "(.*).(fa|fasta)", "$1.dict")
 
 		Int scatterCount = 1
 		String subdivisionMode = "INTERVAL_SUBDIVISION"
@@ -529,6 +535,7 @@ task splitIntervals {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -563,8 +570,10 @@ task splitIntervals {
 	}
 
 	runtime {
+		bind_opt: "~{outputRep}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -634,6 +643,10 @@ task splitIntervals {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
 			category: 'System'
 		}
 	}

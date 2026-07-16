@@ -47,7 +47,8 @@
 | FastQC        | v0.11.9      | fastqc                  | 0.0.1   |
 |               |              | fastqcNano              | 0.0.1   |
 |               |              | fastqcCasava            | 0.0.1   |
-| GATK4         | v4.1.8.1     | ApplyBQSR               | 0.0.2   |
+| GATK4         | v4.6.2.0     | SplitIntervals          | 0.1.0   |
+|               | v4.1.8.1     | ApplyBQSR               | 0.0.2   |
 |               |              | BaseRecalibrator        | 0.0.2   |
 |               |              | BedToIntervalList       | 0.0.1   |
 |               |              | IntervalListToBed       | 0.0.1   |
@@ -59,7 +60,6 @@
 |               |              | LeftAlignIndels         | 0.0.1   |
 |               |              | ReorderSam              | 0.0.1   |
 |               |              | DepthOfCoverage (BETA)  | 0.0.1   |
-|               |              | SplitIntervals          | 0.0.1   |
 |               |              | SplitVcfs               | 0.0.2   |
 |               |              | VariantFiltration       | 0.0.6   |
 |               |              | MergeVcfs               | 0.0.1   |
