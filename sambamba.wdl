@@ -1,7 +1,7 @@
 version 1.0
 
 # MobiDL 2.0 - MobiDL 2 is a collection of tools wrapped in WDL to be used in any WDL pipelines.
-# Copyright (C) 2021 MoBiDiC
+# Copyright (C) 2026 MoBiDiC
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,10 +18,10 @@ version 1.0
 
 task get_version {
 	meta {
-		author: "Olivier ARDOUIN"
+		authors: ["Olivier ARDOUIN", "Charles VAN GOETHEM"]
 		email: "o-ardouin(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2022-03-16"
+		version: "0.1.0"
+		date: "2026-07-15"
 	}
 
 	input {
@@ -30,6 +30,7 @@ task get_version {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "sambamba:1.0.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -39,7 +40,7 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		~{path_exe} --version
+		~{path_exe} --version 2>&1 | head -2 | tail -1
 	>>>
 
 	output {
@@ -49,6 +50,7 @@ task get_version {
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -68,6 +70,10 @@ task get_version {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: sambamba:1.0.1]',
+			category: 'System'
+		}
 	}
 }
 
@@ -75,8 +81,8 @@ task markdup {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-07-30"
+		version: "0.1.0"
+		date: "2026-07-15"
 	}
 
 	input {
@@ -99,6 +105,7 @@ task markdup {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "sambamba:1.0.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -126,18 +133,20 @@ task markdup {
 			~{default="" "--overflow-list-size " + overflowListSize} \
 			~{default="" "--sort-buffer-size " + sortBufferSize} \
 			~{default="" "--io-buffer-size " + bufferSize} \
-			~{in} ~{outputBam}
+			"~{in}" "~{outputBam}"
 
 	>>>
 
 	output {
-		File outputBam = outputBam
-		File outputBai = outputBai
+		File outputBam = "~{outputBam}"
+		File outputBai = "~{outputBai}"
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -196,6 +205,10 @@ task markdup {
 		bufferSize: {
 			description: 'Two buffers of BUFFER_SIZE *megabytes* each are used for reading and writing BAM during the second pass',
 			category: 'Tool option'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: sambamba:1.0.1]',
+			category: 'System'
 		}
 	}
 }
