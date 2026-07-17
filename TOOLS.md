@@ -48,8 +48,8 @@
 |               |              | fastqcNano              | 0.0.1   |
 |               |              | fastqcCasava            | 0.0.1   |
 | GATK4         | v4.6.2.0     | SplitIntervals          | 0.1.0   |
+|               |              | BaseRecalibrator        | 0.1.0   |
 |               | v4.1.8.1     | ApplyBQSR               | 0.0.2   |
-|               |              | BaseRecalibrator        | 0.0.2   |
 |               |              | BedToIntervalList       | 0.0.1   |
 |               |              | IntervalListToBed       | 0.0.1   |
 |               |              | HaplotypeCaller         | 0.0.7   |

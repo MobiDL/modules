@@ -656,15 +656,15 @@ task baseRecalibrator {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2021-02-23"
+		version: "0.1.0"
+		date: "2026-07-17"
 	}
 
 	input {
 		String path_exe = "gatk"
 
-		File in
-		File bamIdx
+		File bam
+		File bai = bam + ".bai"
 		String? outputPath
 		String? name
 		File? intervals
@@ -672,12 +672,11 @@ task baseRecalibrator {
 		String subStringReplace_intervals = "$1"
 		String ext = ".recal"
 
-		Array[File]+ knownSites
-		Array[File]+ knownSitesIdx
+		Array[Pair[File, File]]+ knownSites
 
 		File refFasta
-		File refFai
-		File refDict
+		File refFai = refFasta + ".fai"
+		File refDict = sub(refFasta, "(.*).(fa|fasta)", "$1.dict")
 
 		Int gapPenality = 40
 		Int indelDefaultQual = 45
@@ -693,6 +692,7 @@ task baseRecalibrator {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -704,7 +704,7 @@ task baseRecalibrator {
 	String baseNameIntervals = if defined(intervals) then intervals else ""
 	String baseIntervals = if defined(intervals) then sub(basename(baseNameIntervals),subString_intervals,subStringReplace_intervals) else ""
 
-	String baseName = if defined(name) then name else sub(basename(in),"\.(sam|bam|cram)$","")
+	String baseName = if defined(name) then name else sub(basename(bam),"\.(sam|bam|cram)$","")
 	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}.~{baseIntervals}~{ext}" else "~{baseName}.~{baseIntervals}~{ext}"
 
 	command <<<
@@ -713,11 +713,15 @@ task baseRecalibrator {
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
+		for knownsite in $(jq -r '.[].left' ~{write_json(knownSites)}); do
+			knownsites="${knownsites} --known-sites ${knownsite}"
+		done
+
 		~{path_exe} BaseRecalibrator \
-			--input ~{in} \
-			--known-sites ~{sep=" --known-sites " knownSites} \
-			--reference ~{refFasta} \
+			--input "~{bam}" \
+			--reference "~{refFasta}" \
 			~{default="" "--intervals " + intervals} \
+			${knownsites} \
 			--bqsr-baq-gap-open-penalty ~{gapPenality} \
 			--deletions-default-quality ~{indelDefaultQual} \
 			--insertions-default-quality ~{indelDefaultQual} \
@@ -728,7 +732,7 @@ task baseRecalibrator {
 			--interval-padding ~{intervalsPadding} \
 			--interval-merging-rule ~{true="OVERLAPPING_ONLY" false="ALL" overlappingRule} \
 			--interval-set-rule ~{true="INTERSECTION" false="UNION" intersectionRule} \
-			--output ~{outputFile}
+			--output "~{outputFile}"
 
 	>>>
 
@@ -737,8 +741,10 @@ task baseRecalibrator {
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -746,12 +752,8 @@ task baseRecalibrator {
 			description: 'Path used as executable [default: "gatk"]',
 			category: 'System'
 		}
-		in: {
+		bam: {
 			description: 'Alignement file to recalibrate (SAM/BAM/CRAM)',
-			category: 'Required'
-		}
-		bamIdx: {
-			description: 'Index for the alignement input file to recalibrate.',
 			category: 'Required'
 		}
 		intervals: {
@@ -780,10 +782,6 @@ task baseRecalibrator {
 		}
 		knownSites: {
 			description: 'One or more databases of known polymorphic sites used to exclude regions around known polymorphisms from analysis.',
-			category: 'Tool option'
-		}
-		knownSitesIdx: {
-			description: 'Indexes of the inputs known sites.',
 			category: 'Tool option'
 		}
 		refFasta: {
@@ -844,6 +842,10 @@ task baseRecalibrator {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
 			category: 'System'
 		}
 	}
