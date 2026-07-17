@@ -570,7 +570,7 @@ task splitIntervals {
 	}
 
 	runtime {
-		bind_opt: "~{outputRep}"
+		bind_opt: "~{outputPath}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
