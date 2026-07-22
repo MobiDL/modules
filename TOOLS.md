@@ -43,12 +43,12 @@
 |               |              | qualityTrimming         | 0.0.2   |
 |               |              | hardTrimming            | 0.0.3   |
 | DWGSim        | 0.1.11       | simulateReadsIllumina   | 0.0.1   |
-| Fastp         | v1.3.6       | fastp                   | 0.1.1   |
+| Fastp         | v1.3.6       | fastp                   | 0.1.2   |
 | FastQC        | v0.11.9      | fastqc                  | 0.0.1   |
 |               |              | fastqcNano              | 0.0.1   |
 |               |              | fastqcCasava            | 0.0.1   |
-| GATK4         | v4.6.2.0     | SplitIntervals          | 0.1.0   |
-|               |              | BaseRecalibrator        | 0.1.0   |
+| GATK4         | v4.6.2.0     | SplitIntervals          | 0.1.1   |
+|               |              | BaseRecalibrator        | 0.1.1   |
 |               | v4.1.8.1     | ApplyBQSR               | 0.0.2   |
 |               |              | BedToIntervalList       | 0.0.1   |
 |               |              | IntervalListToBed       | 0.0.1   |
@@ -70,7 +70,7 @@
 |               |              | MarkDuplicates          | 0.0.1   |
 | Longshot      | 0.4.1        | longshot                | 0.0.3   |
 | MiniMap2      | 1.1.2        | mapOnt                  | 0.0.1   |
-| minibwa       | 0.3          | map                     | 0.0.1a  |
+| minibwa       | 0.3          | map                     | 0.1.0   |
 | MPA           | 1.1.2        | mpa                     | 0.0.1   |
 | NanoPlot      | 1.36.2       | nanoplot_summary        | 0.0.1   |
 |               |              | nanoplot_fastq          | 0.0.1   |
@@ -80,12 +80,12 @@
 | Rsync         | 3.1.3        | rsync                   | 0.0.1   |
 | RTG tools     | 3.12         | fasta2sdf               | 0.0.1   |
 |               |              | vcfeval                 | 0.0.1   |
-| Sambamba      | 1.0.1        | markdup                 | 0.1.0   |
+| Sambamba      | 1.0.1        | markdup                 | 0.1.1   |
 |               | 0.7.1        | index                   | 0.0.2   |
 |               |              | flagstat                | 0.0.1   |
 |               |              | sort                    | 0.0.2   |
 |               |              | view                    | 0.0.2   |
-| Samtools      | 1.23.1       | sort                    | 0.1.0   |
+| Samtools      | 1.23.1       | sort                    | 0.1.1   |
 |               | 1.10         | bedcov                  | 0.0.1   |
 |               |              | index                   | 0.0.1   |
 |               |              | flagstat                | 0.0.1   |

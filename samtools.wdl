@@ -88,7 +88,7 @@ task sort {
 	input {
 		String path_exe = "samtools"
 
-		File in
+		File bam
 		String? outputPath
 		String? name
 		String suffix = ".sort"
@@ -111,7 +111,7 @@ task sort {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseName = if defined(name) then name else sub(basename(in),"(\.sam|\.bam|\.cram)","")
+	String baseName = if defined(name) then name else sub(basename(bam),"(\.sam|\.bam|\.cram)","")
 	String outputFile = if defined(outputPath) then "~{outputPath}/samtools/~{baseName}~{suffix}.~{format}" else "samtools/~{baseName}~{suffix}.~{format}"
 
 	command <<<
@@ -129,7 +129,7 @@ task sort {
 			--threads ~{threads - 1} \
 			-m ~{memoryByThreadsMb}M \
 			-o "~{outputFile}" \
-			"~{in}"
+			"~{bam}"
 
 	>>>
 
@@ -138,7 +138,7 @@ task sort {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}"
+		bind_opt: "~{outputPath}" + "," + sub(in,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -157,8 +157,8 @@ task sort {
 			description: 'Name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Tool option'
 		}
-		in: {
-			description: 'Bam file to sort.',
+		bam: {
+			description: 'Bam/sam/cram file to sort.',
 			category: 'Required'
 		}
 		suffix: {

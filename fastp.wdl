@@ -1,7 +1,7 @@
 version 1.0
 
 # MobiDL 2.0 - MobiDL 2 is a collection of tools wrapped in WDL to be used in any WDL pipelines.
-# Copyright (C) 2021 MoBiDiC
+# Copyright (C) 2026 MoBiDiC
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -81,8 +81,8 @@ task fastp {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.1"
-		date: "2026-07-15"
+		version: "0.1.2"
+		date: "2026-07-22"
 	}
 
 	input {
@@ -131,7 +131,6 @@ task fastp {
 			--report_title "~{baseName}" \
 			--json "~{outputBase}.json" \
 			--html "~{outputBase}.html"
-    
     >>>
 
 	output {
@@ -142,7 +141,7 @@ task fastp {
 	}
 
 	runtime {
-        bind_opt: "~{outputPath}"
+        bind_opt: "~{outputPath}" + "," + sub(fastqR1,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
         docker: "~{apptainer_img}"

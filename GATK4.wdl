@@ -509,14 +509,14 @@ task splitIntervals {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-16"
+		version: "0.1.1"
+		date: "2026-07-22"
 	}
 
 	input {
 		String path_exe = "gatk"
 
-		File in
+		File bed
 		String? outputPath
 		String? name
 		String subString = "\.([a-zA-Z]*)$"
@@ -554,7 +554,7 @@ task splitIntervals {
 		fi
 
 		~{path_exe} SplitIntervals \
-			--intervals ~{in} \
+			--intervals ~{bed} \
 			--reference ~{refFasta} \
 			--scatter-count ~{scatterCount} \
 			--subdivision-mode ~{subdivisionMode} \
@@ -570,7 +570,7 @@ task splitIntervals {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}"
+		bind_opt: "~{outputPath}" + "," + sub(refFasta,"(.*)\/(.*)$","$1") + "," + sub(in,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -581,8 +581,8 @@ task splitIntervals {
 			description: 'Path used as executable [default: "gatk"]',
 			category: 'System'
 		}
-		in: {
-			description: 'Path to a file containing genomic intervals over which to operate. (format intervals list: chr1:1000-2000)',
+		bed: {
+			description: 'Path to a file containing genomic intervals over which to operate. (format: bed or GATK intervals list)',
 			category: 'Required'
 		}
 		outputPath: {
@@ -656,8 +656,8 @@ task baseRecalibrator {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-17"
+		version: "0.1.1"
+		date: "2026-07-22"
 	}
 
 	input {
@@ -667,7 +667,7 @@ task baseRecalibrator {
 		File bai = bam + ".bai"
 		String? outputPath
 		String? name
-		File? intervals
+		File? bed
 		String subString_intervals = "([0-9]+)-scattered.interval_list"
 		String subStringReplace_intervals = "$1"
 		String ext = ".recal"
@@ -720,7 +720,7 @@ task baseRecalibrator {
 		~{path_exe} BaseRecalibrator \
 			--input "~{bam}" \
 			--reference "~{refFasta}" \
-			~{default="" "--intervals " + intervals} \
+			~{default="" "--intervals " + bed} \
 			${knownsites} \
 			--bqsr-baq-gap-open-penalty ~{gapPenality} \
 			--deletions-default-quality ~{indelDefaultQual} \
@@ -741,7 +741,7 @@ task baseRecalibrator {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}"
+		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(bed,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -756,8 +756,8 @@ task baseRecalibrator {
 			description: 'Alignement file to recalibrate (SAM/BAM/CRAM)',
 			category: 'Required'
 		}
-		intervals: {
-			description: 'Path to a file containing genomic intervals over which to operate. (format intervals list: chr1:1000-2000)',
+		bed: {
+			description: 'Path to a file containing genomic intervals over which to operate. (format: bed or GATK intervals list)',
 			category: 'Tool option'
 		}
 		subString_intervals: {

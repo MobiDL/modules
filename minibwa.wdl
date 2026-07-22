@@ -19,8 +19,8 @@ version 1.0
 task get_version {
 	meta {
 		author: "Charles Van Goethem"
-		email: "o-ardouin(at)chu-montpellier.fr"
-		version: "0.0.1a"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
 		date: "2026-07-15"
 	}
 
@@ -81,8 +81,8 @@ task map {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1a"
-		date: "2026-07-15"
+		version: "0.1.0"
+		date: "2026-07-22"
 	}
 
 	input {
@@ -138,7 +138,7 @@ task map {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}"
+		bind_opt: "~{outputPath}" + "," + sub(fasta,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"

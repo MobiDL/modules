@@ -81,14 +81,14 @@ task markdup {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
+		version: "0.1.1"
 		date: "2026-07-15"
 	}
 
 	input {
 		String path_exe = "sambamba"
 
-		File in
+		File bam
 		String? outputPath
 		String? sample
 		String suffix = ".markdup"
@@ -114,7 +114,7 @@ task markdup {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String sampleName = if defined(sample) then sample else sub(basename(in),"(\.bam|\.sam|\.cram)","")
+	String sampleName = if defined(sample) then sample else sub(basename(bam),"(\.bam|\.sam|\.cram)","")
 	String outputBam = if defined(outputPath) then "~{outputPath}/~{sampleName}~{suffix}.bam" else "~{sampleName}~{suffix}.bam"
 	String outputBai = if defined(outputPath) then "~{outputPath}/~{sampleName}~{suffix}.bam.bai" else "~{sampleName}~{suffix}.bam.bai"
 
@@ -133,7 +133,7 @@ task markdup {
 			~{default="" "--overflow-list-size " + overflowListSize} \
 			~{default="" "--sort-buffer-size " + sortBufferSize} \
 			~{default="" "--io-buffer-size " + bufferSize} \
-			"~{in}" "~{outputBam}"
+			"~{bam}" "~{outputBam}"
 
 	>>>
 
@@ -143,7 +143,7 @@ task markdup {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}"
+		bind_opt: "~{outputPath}" + "," + sub(in,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -162,7 +162,7 @@ task markdup {
 			description: 'Sample name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Output path/name option'
 		}
-		in: {
+		bam: {
 			description: 'Bam file to mark or remove duplicates.',
 			category: 'Required'
 		}
