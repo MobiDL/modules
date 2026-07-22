@@ -544,7 +544,7 @@ task splitIntervals {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
+	String baseName = if defined(name) then name else sub(basename(bed),subString,subStringReplace)
 	String outputRep = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
 
 	command <<<
@@ -570,7 +570,7 @@ task splitIntervals {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(refFasta,"(.*)\/(.*)$","$1") + "," + sub(in,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}" + "," + sub(refFasta,"(.*)\/(.*)$","$1") + "," + sub(bed,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -701,8 +701,8 @@ task baseRecalibrator {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseNameIntervals = if defined(intervals) then intervals else ""
-	String baseIntervals = if defined(intervals) then sub(basename(baseNameIntervals),subString_intervals,subStringReplace_intervals) else ""
+	String baseNameIntervals = if defined(bed) then bed else ""
+	String baseIntervals = if defined(bed) then sub(basename(baseNameIntervals),subString_intervals,subStringReplace_intervals) else ""
 
 	String baseName = if defined(name) then name else sub(basename(bam),"\.(sam|bam|cram)$","")
 	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}.~{baseIntervals}~{ext}" else "~{baseName}.~{baseIntervals}~{ext}"
@@ -741,7 +741,7 @@ task baseRecalibrator {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(bed,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(baseNameIntervals,"(.*)\/(.*)$","$1") + "," + sub(refFasta,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"

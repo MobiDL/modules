@@ -143,7 +143,7 @@ task markdup {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(in,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"

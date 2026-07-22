@@ -81,8 +81,8 @@ task sort {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-15"
+		version: "0.1.1"
+		date: "2026-07-22"
 	}
 
 	input {
@@ -138,7 +138,7 @@ task sort {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(in,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
