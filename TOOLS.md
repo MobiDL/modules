@@ -51,13 +51,13 @@
 |               |              | BaseRecalibrator        | 0.1.1   |
 |               |              | GatherBQSRReports       | 0.1.0   |
 |               |              | ApplyBQSR               | 0.1.0   |
+|               |              | LeftAlignIndels         | 0.1.0   |
 |               | v4.1.8.1     | BedToIntervalList       | 0.0.1   |
 |               |              | IntervalListToBed       | 0.0.1   |
 |               |              | HaplotypeCaller         | 0.0.7   |
 |               |              | CollectMultipleMetrics  | 0.0.1   |
 |               |              | GatherBamFiles          | 0.0.3   |
 |               |              | GatherVcfFiles          | 0.0.3   |
-|               |              | LeftAlignIndels         | 0.0.1   |
 |               |              | ReorderSam              | 0.0.1   |
 |               |              | DepthOfCoverage (BETA)  | 0.0.1   |
 |               |              | SplitVcfs               | 0.0.2   |

@@ -1285,15 +1285,15 @@ task leftAlignIndels {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-08-07"
+		version: "0.1.0"
+		date: "2026-07-23"
 	}
 
 	input {
 		String path_exe = "gatk"
 
-		File in
-		File bamIdx
+		File bam
+		File bamIdx = sub(bam,"(m)$","i")
 		String? outputPath
 		String? name
 		String suffix = ".leftAlign"
@@ -1301,8 +1301,8 @@ task leftAlignIndels {
 		File? intervals
 
 		File refFasta
-		File refFai
-		File refDict
+		File refFai = refFasta + ".fai"
+		File refDict = sub(refFasta, "(.*).(fa|fasta)", "$1.dict")
 
 		Boolean overlappingRule = false
 		Int intervalsPadding = 0
@@ -1314,6 +1314,7 @@ task leftAlignIndels {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -1325,8 +1326,8 @@ task leftAlignIndels {
 	String baseNameIntervals = if defined(intervals) then intervals else ""
 	String baseIntervals = if defined(intervals) then sub(basename(baseNameIntervals),"([0-9]+)-scattered.interval_list","\.$1") else ""
 
-	String baseName = if defined(name) then name else sub(basename(in),"(\.[0-9]+)?\.(sam|bam|cram)$","")
-	String ext = sub(basename(in),"(.*)\.(sam|bam|cram)$","$2")
+	String baseName = if defined(name) then name else sub(basename(bam),"(\.[0-9]+)?\.(sam|bam|cram)$","")
+	String ext = sub(basename(bam),"(.*)\.(sam|bam|cram)$","$2")
 	String outputBamFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}~{baseIntervals}\.~{ext}" else "~{baseName}~{suffix}~{baseIntervals}\.~{ext}"
 	String outputBaiFile = sub(outputBamFile,"(m)$","i")
 
@@ -1337,16 +1338,16 @@ task leftAlignIndels {
 		fi
 
 		~{path_exe} LeftAlignIndels \
-			--input ~{in} \
-			--reference ~{refFasta} \
-			--sequence-dictionary ~{refDict} \
+			--input "~{bam}" \
+			--reference "~{refFasta}" \
+			--sequence-dictionary "~{refDict}" \
 			~{default="" "--intervals " + intervals} \
 			--interval-padding ~{intervalsPadding} \
 			--interval-merging-rule ~{true="OVERLAPPING_ONLY" false="ALL" overlappingRule} \
 			--interval-set-rule ~{true="INTERSECTION" false="UNION" intersectionRule} \
 			~{true="--create-output-bam-index" false="" bamIndex} \
 			~{true="--create-output-bam-md5" false="" bamMD5} \
-			--output ~{outputBamFile}
+			--output "~{outputBamFile}"
 
 	>>>
 
@@ -1356,8 +1357,10 @@ task leftAlignIndels {
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(baseNameIntervals,"(.*)\/(.*)$","$1") + "," + sub(refFasta,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -1365,7 +1368,7 @@ task leftAlignIndels {
 			description: 'Path used as executable [default: "gatk"]',
 			category: 'System'
 		}
-		in: {
+		bam: {
 			description: 'BAM to leftAlign.',
 			category: 'Required'
 		}
@@ -1427,6 +1430,10 @@ task leftAlignIndels {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
 			category: 'System'
 		}
 	}
