@@ -855,14 +855,14 @@ task gatherBQSRReports {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2020-12-23"
+		version: "0.1.0"
+		date: "2026-07-23"
 	}
 
 	input {
 		String path_exe = "gatk"
 
-		Array[File]+ in
+		Array[File]+ reports
 		String? outputPath
 		String? name
 		String subString = "(\.[0-9]+)?\.recal$"
@@ -872,6 +872,7 @@ task gatherBQSRReports {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -880,7 +881,7 @@ task gatherBQSRReports {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String firstFile = basename(in[0])
+	String firstFile = basename(reports[0])
 	String baseName = if defined(name) then name else sub(basename(firstFile),subString,subStringReplace)
 	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{ext}" else "~{baseName}~{ext}"
 
@@ -891,18 +892,20 @@ task gatherBQSRReports {
 		fi
 
 		~{path_exe} GatherBQSRReports \
-			--input ~{sep=" --input " in} \
-			--output ~{outputFile}
+			--input "~{sep='" --input "' reports}" \
+			--output "~{outputFile}"
 
 	>>>
 
 	output {
-		File outputFile = outputFile
+		File report = outputFile
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -910,7 +913,7 @@ task gatherBQSRReports {
 			description: 'Path used as executable [default: "gatk"]',
 			category: 'System'
 		}
-		in: {
+		reports: {
 			description: 'List of scattered BQSR report files',
 			category: 'Required'
 		}
@@ -944,6 +947,10 @@ task gatherBQSRReports {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
 			category: 'System'
 		}
 	}

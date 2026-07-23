@@ -49,13 +49,13 @@
 |               |              | fastqcCasava            | 0.0.1   |
 | GATK4         | v4.6.2.0     | SplitIntervals          | 0.1.1   |
 |               |              | BaseRecalibrator        | 0.1.1   |
+|               |              | GatherBQSRReports       | 0.1.0   |
 |               | v4.1.8.1     | ApplyBQSR               | 0.0.2   |
 |               |              | BedToIntervalList       | 0.0.1   |
 |               |              | IntervalListToBed       | 0.0.1   |
 |               |              | HaplotypeCaller         | 0.0.7   |
 |               |              | CollectMultipleMetrics  | 0.0.1   |
 |               |              | GatherBamFiles          | 0.0.3   |
-|               |              | GatherBQSRReports       | 0.0.2   |
 |               |              | GatherVcfFiles          | 0.0.3   |
 |               |              | LeftAlignIndels         | 0.0.1   |
 |               |              | ReorderSam              | 0.0.1   |
