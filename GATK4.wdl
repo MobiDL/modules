@@ -960,15 +960,15 @@ task applyBQSR {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2021-02-23"
+		version: "0.1.0"
+		date: "2026-07-23"
 	}
 
 	input {
 		String path_exe = "gatk"
 
-		File in
-		File bamIdx
+		File bam
+		File bamIdx = bam + ".bai"
 		File bqsrReport
 		File? intervals
 		String subString_intervals = "([0-9]+)-scattered.interval_list"
@@ -978,8 +978,8 @@ task applyBQSR {
 		String suffix = ".bqsr"
 
 		File refFasta
-		File refFai
-		File refDict
+		File refFai = refFasta + ".fai"
+		File refDict = sub(refFasta, "(.*).(fa|fasta)", "$1.dict")
 
 		Boolean originalQScore = false
 		Int globalQScorePrior = -1
@@ -996,6 +996,7 @@ task applyBQSR {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -1005,11 +1006,11 @@ task applyBQSR {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseNameIntervals = if defined(intervals) then intervals else ""
-	String baseIntervals = if defined(intervals) then sub(basename(baseNameIntervals),subString_intervals,subStringReplace_intervals) else ""
+	String baseIntervals = if defined(intervals) then "." + sub(basename(baseNameIntervals),subString_intervals,subStringReplace_intervals) else ""
 
-	String baseName = if defined(name) then name else sub(basename(in),"(.*)\.(sam|bam|cram)$","$1")
-	String ext = sub(basename(in),"(.*)\.(sam|bam|cram)$","$2")
-	String outputBamFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}.~{baseIntervals}\.~{ext}" else "~{baseName}~{suffix}.~{baseIntervals}\.~{ext}"
+	String baseName = if defined(name) then name else sub(basename(bam),"(.*)\.(sam|bam|cram)$","$1")
+	String ext = sub(basename(bam),"(.*)\.(sam|bam|cram)$","$2")
+	String outputBamFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}~{baseIntervals}\.~{ext}" else "~{baseName}~{suffix}~{baseIntervals}\.~{ext}"
 	String outputBaiFile = sub(outputBamFile,"(m)$","i")
 
 	command <<<
@@ -1019,9 +1020,9 @@ task applyBQSR {
 		fi
 
 		~{path_exe} ApplyBQSR \
-			--input ~{in} \
-			--bqsr-recal-file ~{bqsrReport} \
-			--reference ~{refFasta} \
+			--input "~{bam}" \
+			--bqsr-recal-file "~{bqsrReport}" \
+			--reference "~{refFasta}" \
 			~{default="" "--intervals " + intervals} \
 			~{true="--emit-original-quals" false="" originalQScore} \
 			--global-qscore-prior ~{globalQScorePrior} \
@@ -1032,7 +1033,7 @@ task applyBQSR {
 			--interval-set-rule ~{true="INTERSECTION" false="UNION" intersectionRule} \
 			~{true="--create-output-bam-index" false="" bamIndex} \
 			~{true="--create-output-bam-md5" false="" bamMD5} \
-			--output ~{outputBamFile}
+			--output "~{outputBamFile}"
 
 	>>>
 
@@ -1042,8 +1043,10 @@ task applyBQSR {
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(baseNameIntervals,"(.*)\/(.*)$","$1") + "," + sub(refFasta,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -1051,7 +1054,7 @@ task applyBQSR {
 			description: 'Path used as executable [default: "gatk"]',
 			category: 'System'
 		}
-		in: {
+		bam: {
 			description: 'Bam file top apply BQSR.',
 			category: 'Required'
 		}
@@ -1145,6 +1148,10 @@ task applyBQSR {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
 			category: 'System'
 		}
 	}
