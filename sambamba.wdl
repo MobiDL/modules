@@ -312,14 +312,14 @@ task sort {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2021-03-31"
+		version: "0.1.0"
+		date: "2026-07-23"
 	}
 
 	input {
 		String path_exe = "sambamba"
 
-		File in
+		File bam
 		String? outputPath
 		String? sample
 		String suffix = ".sort"
@@ -335,6 +335,7 @@ task sort {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "sambamba:1.0.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -343,7 +344,7 @@ task sort {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String sampleName = if defined(sample) then sample else sub(basename(in),"(\.bam|\.sam|\.cram)","")
+	String sampleName = if defined(sample) then sample else sub(basename(bam),"(\.bam|\.sam|\.cram)","")
 	String outputFile = if defined(outputPath) then "~{outputPath}/~{sampleName}~{suffix}.bam" else "~{sampleName}~{suffix}.bam"
 
 	command <<<
@@ -360,8 +361,8 @@ task sort {
 			~{default="" true="--sort-by-name" false="--natural-sort" sortByReadName} \
 			--compression-level ~{compressionLevel} \
 			~{true="--uncompressed-chunks" false="" uncompressedChuncks} \
-			--out ~{outputFile} \
-			~{in}
+			--out "~{outputFile}" \
+			"~{bam}"
 
 	>>>
 
@@ -371,8 +372,10 @@ task sort {
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1")
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -388,7 +391,7 @@ task sort {
 			description: 'Sample name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Output path/name option'
 		}
-		in: {
+		bam: {
 			description: 'Bam file to sort.',
 			category: 'Required'
 		}
@@ -426,6 +429,10 @@ task sort {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: sambamba:1.0.1]',
 			category: 'System'
 		}
 	}

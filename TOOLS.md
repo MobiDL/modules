@@ -81,9 +81,9 @@
 | RTG tools     | 3.12         | fasta2sdf               | 0.0.1   |
 |               |              | vcfeval                 | 0.0.1   |
 | Sambamba      | 1.0.1        | markdup                 | 0.1.1   |
+|               |              | sort                    | 0.1.0   |
 |               | 0.7.1        | index                   | 0.0.2   |
 |               |              | flagstat                | 0.0.1   |
-|               |              | sort                    | 0.0.2   |
 |               |              | view                    | 0.0.2   |
 | Samtools      | 1.23.1       | sort                    | 0.1.1   |
 |               | 1.10         | bedcov                  | 0.0.1   |
