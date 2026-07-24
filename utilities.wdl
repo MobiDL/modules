@@ -1812,3 +1812,60 @@ task rm_files {
 		}
 	}
 }
+
+# WARNING
+# This task is obsolete since WDL 1.1 specifications.
+# Cromwell 92, the first version to support WDL 1.1, has an error with containers (see: https://github.com/broadinstitute/cromwell/issues/7846).
+# Therefore, we must use a previous version of Cromwell, which does not support WDL 1.1 specifications.
+task suffixArray {
+	input {
+		Array[String] array
+        String suffix
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "ubuntu:22.04"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	command <<<
+		for knownsite in $(jq -r '.[]' ~{write_json(array)}); do
+			echo $knownsite"~{suffix}"
+		done
+	>>>
+
+	output {
+		Array[String] array_suffix = read_lines(stdout())
+	}
+
+	runtime {
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		files: {
+			description: 'Array of files/directory to remove',
+			category: 'Input'
+		}
+		suffix: {
+			description: 'Suffix to add to all element of the array',
+			category: 'Input'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+	}
+}
