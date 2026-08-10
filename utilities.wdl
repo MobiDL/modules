@@ -1818,6 +1818,13 @@ task rm_files {
 # Cromwell 92, the first version to support WDL 1.1, has an error with containers (see: https://github.com/broadinstitute/cromwell/issues/7846).
 # Therefore, we must use a previous version of Cromwell, which does not support WDL 1.1 specifications.
 task suffixArray {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.0.2"
+		date: "2026-08-10"
+	}
+
 	input {
 		Array[String] array
         String suffix
@@ -1851,8 +1858,8 @@ task suffixArray {
 	}
 
 	parameter_meta {
-		files: {
-			description: 'Array of files/directory to remove',
+		array: {
+			description: 'Array of string',
 			category: 'Input'
 		}
 		suffix: {
