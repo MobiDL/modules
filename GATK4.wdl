@@ -509,15 +509,16 @@ task splitIntervals {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.1"
-		date: "2026-07-22"
+		version: "0.1.2"
+		date: "2026-08-12"
 	}
 
 	input {
 		String path_exe = "gatk"
 
 		File bed
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? name
 		String subString = "\.([a-zA-Z]*)$"
 		String subStringReplace = "-split"
@@ -545,7 +546,7 @@ task splitIntervals {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(name) then name else sub(basename(bed),subString,subStringReplace)
-	String outputRep = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
+	String outputRep = "~{outputPath}/~{subdir}/~{baseName}"
 
 	command <<<
 
@@ -570,7 +571,7 @@ task splitIntervals {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(refFasta,"(.*)\/(.*)$","$1") + "," + sub(bed,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{bed}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -589,6 +590,10 @@ task splitIntervals {
 			description: 'Output path where files were generated.',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		name: {
 			description: 'Output repertory name [default: sub(basename(in),"\.([a-zA-Z]*)$","")].',
 			category: 'Output path/name option'
@@ -656,8 +661,8 @@ task baseRecalibrator {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.1"
-		date: "2026-07-22"
+		version: "0.1.2"
+		date: "2026-08-12"
 	}
 
 	input {
@@ -665,14 +670,16 @@ task baseRecalibrator {
 
 		File bam
 		File bai = bam + ".bai"
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? name
 		File? bed
 		String subString_intervals = "([0-9]+)-scattered.interval_list"
 		String subStringReplace_intervals = "$1"
 		String ext = ".recal"
 
-		Array[Pair[File, File]]+ knownSites
+		Array[File]+ knownSites
+		Array[File]+ knownSitesIdx
 
 		File refFasta
 		File refFai = refFasta + ".fai"
@@ -705,7 +712,7 @@ task baseRecalibrator {
 	String baseIntervals = if defined(bed) then sub(basename(baseNameIntervals),subString_intervals,subStringReplace_intervals) else ""
 
 	String baseName = if defined(name) then name else sub(basename(bam),"\.(sam|bam|cram)$","")
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}.~{baseIntervals}~{ext}" else "~{baseName}.~{baseIntervals}~{ext}"
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}.~{baseIntervals}~{ext}"
 
 	command <<<
 
@@ -713,15 +720,11 @@ task baseRecalibrator {
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		for knownsite in $(jq -r '.[].left' ~{write_json(knownSites)}); do
-			knownsites="${knownsites} --known-sites ${knownsite}"
-		done
-
 		~{path_exe} BaseRecalibrator \
 			--input "~{bam}" \
 			--reference "~{refFasta}" \
 			~{default="" "--intervals " + bed} \
-			${knownsites} \
+			--known-sites ~{sep=" --known-sites " knownSites} \
 			--bqsr-baq-gap-open-penalty ~{gapPenality} \
 			--deletions-default-quality ~{indelDefaultQual} \
 			--insertions-default-quality ~{indelDefaultQual} \
@@ -741,7 +744,7 @@ task baseRecalibrator {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(baseNameIntervals,"(.*)\/(.*)$","$1") + "," + sub(refFasta,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}" + "," + "~{baseNameIntervals}" + "," + "~{refFasta}" + "~{default='' ',' + bed}" + "," + "~{sep=',' knownSites}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -772,6 +775,10 @@ task baseRecalibrator {
 			description: 'Output path where bqsr report will be generated.',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		name: {
 			description: 'Output file base name [default: sub(basename(in),"\.(sam|bam|cram)$","")].',
 			category: 'Output path/name option'
@@ -855,15 +862,16 @@ task gatherBQSRReports {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-23"
+		version: "0.1.1"
+		date: "2026-08-12"
 	}
 
 	input {
 		String path_exe = "gatk"
 
 		Array[File]+ reports
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? name
 		String subString = "(\.[0-9]+)?\.recal$"
 		String subStringReplace = ""
@@ -883,7 +891,7 @@ task gatherBQSRReports {
 
 	String firstFile = basename(reports[0])
 	String baseName = if defined(name) then name else sub(basename(firstFile),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{ext}" else "~{baseName}~{ext}"
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{ext}"
 
 	command <<<
 
@@ -902,7 +910,7 @@ task gatherBQSRReports {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}"
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{sep=',' reports}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -921,6 +929,10 @@ task gatherBQSRReports {
 			description: 'Output path where bqsr report will be generated.',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		name: {
 			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
 			category: 'Output path/name option'
@@ -960,8 +972,8 @@ task applyBQSR {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-23"
+		version: "0.1.1"
+		date: "2026-08-12"
 	}
 
 	input {
@@ -973,7 +985,8 @@ task applyBQSR {
 		File? intervals
 		String subString_intervals = "([0-9]+)-scattered.interval_list"
 		String subStringReplace_intervals = "$1"
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? name
 		String suffix = ".bqsr"
 
@@ -1010,7 +1023,7 @@ task applyBQSR {
 
 	String baseName = if defined(name) then name else sub(basename(bam),"(.*)\.(sam|bam|cram)$","$1")
 	String ext = sub(basename(bam),"(.*)\.(sam|bam|cram)$","$2")
-	String outputBamFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}~{baseIntervals}\.~{ext}" else "~{baseName}~{suffix}~{baseIntervals}\.~{ext}"
+	String outputBamFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{baseIntervals}\.~{ext}"
 	String outputBaiFile = sub(outputBamFile,"(m)$","i")
 
 	command <<<
@@ -1043,7 +1056,7 @@ task applyBQSR {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(baseNameIntervals,"(.*)\/(.*)$","$1") + "," + sub(refFasta,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}" + "," + "~{baseNameIntervals}" + "," + "~{refFasta}" + "," + "~{bqsrReport}" + "~{default='' ',' + intervals}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -1066,6 +1079,10 @@ task applyBQSR {
 			description: 'Output path where bam will be generated.',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		name: {
 			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
 			category: 'Output path/name option'
@@ -1285,8 +1302,8 @@ task leftAlignIndels {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-23"
+		version: "0.1.1"
+		date: "2026-08-12"
 	}
 
 	input {
@@ -1294,7 +1311,8 @@ task leftAlignIndels {
 
 		File bam
 		File bamIdx = sub(bam,"(m)$","i")
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? name
 		String suffix = ".leftAlign"
 
@@ -1328,7 +1346,7 @@ task leftAlignIndels {
 
 	String baseName = if defined(name) then name else sub(basename(bam),"(\.[0-9]+)?\.(sam|bam|cram)$","")
 	String ext = sub(basename(bam),"(.*)\.(sam|bam|cram)$","$2")
-	String outputBamFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}~{baseIntervals}\.~{ext}" else "~{baseName}~{suffix}~{baseIntervals}\.~{ext}"
+	String outputBamFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{baseIntervals}\.~{ext}"
 	String outputBaiFile = sub(outputBamFile,"(m)$","i")
 
 	command <<<
@@ -1357,7 +1375,7 @@ task leftAlignIndels {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1") + "," + sub(baseNameIntervals,"(.*)\/(.*)$","$1") + "," + sub(refFasta,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}" + "," + "~{baseNameIntervals}" + "," + "~{refFasta}" + "~{default='' ',' + intervals}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -1380,6 +1398,10 @@ task leftAlignIndels {
 			description: 'Output path where bam will be generated.',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		name: {
 			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
 			category: 'Output path/name option'

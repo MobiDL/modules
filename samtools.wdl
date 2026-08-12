@@ -81,15 +81,16 @@ task sort {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.1"
-		date: "2026-07-22"
+		version: "0.1.2"
+		date: "2026-08-22"
 	}
 
 	input {
 		String path_exe = "samtools"
 
 		File bam
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? name
 		String suffix = ".sort"
 		String format = "bam"
@@ -112,7 +113,7 @@ task sort {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(name) then name else sub(basename(bam),"(\.sam|\.bam|\.cram)","")
-	String outputFile = if defined(outputPath) then "~{outputPath}/samtools/~{baseName}~{suffix}.~{format}" else "samtools/~{baseName}~{suffix}.~{format}"
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}.~{format}"
 
 	command <<<
 
@@ -138,7 +139,7 @@ task sort {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}" + "," + "~{refFasta}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -153,6 +154,10 @@ task sort {
 			description: 'Output path where bam file was generated. [default: pwd()]',
 			category: 'Tool option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		name: {
 			description: 'Name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Tool option'

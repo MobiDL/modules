@@ -81,14 +81,15 @@ task map {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-22"
+		version: "0.1.1"
+		date: "2026-08-22"
 	}
 
 	input {
 		String path_exe = "minibwa"
 
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? sample
 		String subString = ".(fastq|fq)(.gz)?"
 		String subStringReplace = ""
@@ -115,12 +116,12 @@ task map {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(sample) then sample else sub(basename(fastqR1),subString,subStringReplace)
-	String outputBase = if defined(outputPath) then "~{outputPath}/minibwa/~{baseName}" else "minibwa/~{baseName}"
+	String outputBase = "~{outputPath}/~{subdir}/~{baseName}"
 
 	command <<<
 
-		if [[ ! -d ~{outputPath}/minibwa ]]; then
-			mkdir -p ~{outputPath}/minibwa
+		if [[ ! -d $(dirname ~{outputBase}) ]]; then
+			mkdir -p $(dirname ~{outputBase})
 		fi
 
 		~{path_exe} map \
@@ -138,7 +139,7 @@ task map {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(fasta,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{fasta}" + "," + "~{fastqR1}" + "," + "~{fastqR2}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -153,6 +154,10 @@ task map {
 			description: 'Output path where files will be generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		sample: {
 			description: 'Sample name to use for output file name [default: sub(basename(fastqR1),subString,"")]',
 			category: 'Output path/name option'

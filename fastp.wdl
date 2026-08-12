@@ -81,14 +81,15 @@ task fastp {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.2"
-		date: "2026-07-22"
+		version: "0.1.3"
+		date: "2026-08-22"
 	}
 
 	input {
 		String path_exe = "fastp"
 
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? sample
 		String subString = "(_S[0-9]+)?(_L[0-9][0-9][0-9])?(_R[12])?(_[0-9][0-9][0-9])?.(fastq|fq)(.gz)?"
 		String subStringReplace = ""
@@ -112,12 +113,12 @@ task fastp {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(sample) then sample else sub(basename(fastqR1),subString,subStringReplace)
-	String outputBase = if defined(outputPath) then "~{outputPath}/fastp/~{baseName}" else "fastp/~{baseName}"
+	String outputBase = "~{outputPath}/~{subdir}/~{baseName}"
 
 	command <<<
 
-		if [[ ! -d ~{outputPath}/fastp ]]; then
-			mkdir -p ~{outputPath}/fastp
+		if [[ ! -d $(dirname ~{outputBase}) ]]; then
+			mkdir -p $(dirname ~{outputBase})
 		fi
 
 		~{path_exe} \
@@ -141,7 +142,7 @@ task fastp {
 	}
 
 	runtime {
-        bind_opt: "~{outputPath}" + "," + sub(fastqR1,"(.*)\/(.*)$","$1")
+        bind_opt: "~{outputPath}/~{subdir}" + "," + "~{fastqR1}" + "," + "~{fastqR2}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
         docker: "~{apptainer_img}"
@@ -156,6 +157,10 @@ task fastp {
 			description: 'Output path where files will be generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		sample: {
 			description: 'Sample name to use for output file name [default: sub(basename(fastqR1),subString,"")]',
 			category: 'Output path/name option'

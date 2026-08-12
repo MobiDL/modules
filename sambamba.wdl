@@ -81,15 +81,16 @@ task markdup {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.1"
-		date: "2026-07-15"
+		version: "0.1.3"
+		date: "2026-08-22"
 	}
 
 	input {
 		String path_exe = "sambamba"
 
 		File bam
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? sample
 		String suffix = ".markdup"
 
@@ -115,8 +116,8 @@ task markdup {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String sampleName = if defined(sample) then sample else sub(basename(bam),"(\.bam|\.sam|\.cram)","")
-	String outputBam = if defined(outputPath) then "~{outputPath}/~{sampleName}~{suffix}.bam" else "~{sampleName}~{suffix}.bam"
-	String outputBai = if defined(outputPath) then "~{outputPath}/~{sampleName}~{suffix}.bam.bai" else "~{sampleName}~{suffix}.bam.bai"
+	String outputBam = "~{outputPath}/~{subdir}/~{sampleName}~{suffix}.bam"
+	String outputBai = "~{outputPath}/~{subdir}/~{sampleName}~{suffix}.bam.bai"
 
 	command <<<
 
@@ -143,7 +144,7 @@ task markdup {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}" + "~{default='' ',' + tempDir}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -158,6 +159,10 @@ task markdup {
 			description: 'Output path where bam file was generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		sample: {
 			description: 'Sample name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Output path/name option'
@@ -312,15 +317,16 @@ task sort {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-23"
+		version: "0.1.1"
+		date: "2026-08-22"
 	}
 
 	input {
 		String path_exe = "sambamba"
 
 		File bam
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? sample
 		String suffix = ".sort"
 
@@ -345,7 +351,7 @@ task sort {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String sampleName = if defined(sample) then sample else sub(basename(bam),"(\.bam|\.sam|\.cram)","")
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{sampleName}~{suffix}.bam" else "~{sampleName}~{suffix}.bam"
+	String outputFile = "~{outputPath}/~{subdir}/~{sampleName}~{suffix}.bam"
 
 	command <<<
 
@@ -372,7 +378,7 @@ task sort {
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}" + "," + sub(bam,"(.*)\/(.*)$","$1")
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}" + "~{default='' ',' + tempDir}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -387,6 +393,10 @@ task sort {
 			description: 'Output path where bam file was generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		sample: {
 			description: 'Sample name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Output path/name option'
