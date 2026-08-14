@@ -162,10 +162,10 @@ task splitIntervals {
 			description: 'Output path where files were generated.',
 			category: 'Output path/name option'
 		}
-        subdir: {
+		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
-        }
+		}
 		name: {
 			description: 'Output repertory name [default: sub(basename(in),"\.([a-zA-Z]*)$","")].',
 			category: 'Output path/name option'
@@ -347,10 +347,10 @@ task baseRecalibrator {
 			description: 'Output path where bqsr report will be generated.',
 			category: 'Output path/name option'
 		}
-        subdir: {
+		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
-        }
+		}
 		name: {
 			description: 'Output file base name [default: sub(basename(in),"\.(sam|bam|cram)$","")].',
 			category: 'Output path/name option'
@@ -501,10 +501,10 @@ task gatherBQSRReports {
 			description: 'Output path where bqsr report will be generated.',
 			category: 'Output path/name option'
 		}
-        subdir: {
+		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
-        }
+		}
 		name: {
 			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
 			category: 'Output path/name option'
@@ -651,10 +651,10 @@ task applyBQSR {
 			description: 'Output path where bam will be generated.',
 			category: 'Output path/name option'
 		}
-        subdir: {
+		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
-        }
+		}
 		name: {
 			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
 			category: 'Output path/name option'
@@ -846,10 +846,10 @@ task leftAlignIndels {
 			description: 'Output path where bam will be generated.',
 			category: 'Output path/name option'
 		}
-        subdir: {
+		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
-        }
+		}
 		name: {
 			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
 			category: 'Output path/name option'
@@ -889,6 +889,225 @@ task leftAlignIndels {
 		bamMD5: {
 			description: 'Create a MD5 digest for any BAM/SAM/CRAM file created [default: true]',
 			category: 'Tool option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
+			category: 'System'
+		}
+	}
+}
+
+task haplotypeCaller {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-08-14"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		Array[File] bam
+		Array[File] bai
+		String outputPath
+		String subdir = ""
+		String? name
+		String subString = "\.(sam|bam|cram)$"
+		String subStringReplace = ".haplotypeCaller.vcf"
+		String subStringIntervals = "([0-9]+)-scattered.interval_list$"
+		String subStringReplaceIntervals = ".$1"
+
+		File refFasta
+		File refFai = refFasta + ".fai"
+		File refDict = sub(refFasta, "(.*).(fa|fasta)", "$1.dict")
+
+		## Intervals
+		File? intervals
+		Int intervalsPadding = 0
+		Boolean overlappingRule = false
+		Boolean intersectionRule = false
+
+		## Annotation
+		File? dbsnp
+		File? dbsnpIdx = if defined(dbsnp) then  dbsnp + ".tbi" else refFasta # Need to be fixed but it works... Using structs or objects should fixed that
+
+		## Output
+		Boolean createVCFIdx = true
+		Boolean createVCFMD5 = true
+		Boolean gvcf = false
+
+		## Advanced
+		Int maxMNPdistance = 0 
+		Int maxReadsPerStart = 50
+		Boolean disableSpanningEventGenotyping = true
+		String smithAndWaterman = "FASTEST_AVAILABLE"
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseNameIntervals = if defined(intervals) then intervals else ""
+	String getIntervalsBase = if defined(intervals) then sub(basename(baseNameIntervals),subStringIntervals,subStringReplaceIntervals) else ""
+
+	String bn = if length(bam) == 1 then basename(bam[0]) else "MultiSample"
+	String baseName = if defined(name) then name + getIntervalsBase + subStringReplace else sub(bn,subString,getIntervalsBase + subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputFile}) ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} HaplotypeCaller \
+			--input ~{sep=' --input  ' bam} \
+			--reference ~{refFasta} \
+			--sequence-dictionary ~{refDict} \
+			~{true="--create-output-variant-index" false="" createVCFIdx} \
+			~{true="--create-output-variant-md5" false="" createVCFMD5} \
+			~{default="" "--intervals " + intervals} \
+			--interval-padding ~{intervalsPadding} \
+			~{default="" "--dbsnp " + dbsnp} \
+			--interval-merging-rule ~{true="OVERLAPPING_ONLY" false="ALL" overlappingRule} \
+			--interval-set-rule ~{true="INTERSECTION" false="UNION" intersectionRule} \
+			~{true="--disable-spanning-event-genotyping" false="" disableSpanningEventGenotyping} \
+			--max-mnp-distance ~{maxMNPdistance} \
+			--max-reads-per-alignment-start ~{maxReadsPerStart} \
+			--smith-waterman ~{smithAndWaterman} \
+			--emit-ref-confidence ~{true="GVCF" false="NONE" gvcf} \
+			--output ~{outputFile}
+	>>>
+
+	output {
+		File outputVCF = outputFile
+		File? outputVCFIdx = outputFile + ".idx"
+		File? outputVCFMD5 = outputFile + ".md5"
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}" + "," + "~{baseNameIntervals}" + "," + "~{refFasta}" + "~{default='' ',' + intervals}"
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		bam: {
+			description: 'BAM file.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where files will be generated.',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file name [default: base on the input file].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Substring to replace (e.g. remove extension) [default: "\.(sam|bam|cram)$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'Substring used to replace (e.g. add a suffix) [default: ".haplotypeCaller.vcf"]',
+			category: 'Output path/name option'
+		}
+		subStringIntervals: {
+			description: 'Substring to replace for interval file (e.g. remove extension) [default: "([0-9]+)-scattered.interval_list$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplaceIntervals: {
+			description: 'Substring used to replace for interval file (e.g. add a suffix) [default: ".$1"]',
+			category: 'Output path/name option'
+		}
+		refFasta: {
+			description: 'Path to the reference file (format: fasta)',
+			category: 'Required'
+		}
+		refFai: {
+			description: 'Path to the reference file index (format: fai)',
+			category: 'Required'
+		}
+		refDict: {
+			description: 'Path to the reference file dict (format: dict)',
+			category: 'Required'
+		}
+		intervals: {
+			description: 'Path to a file containing genomic intervals over which to operate. (format intervals list: chr1:1000-2000)',
+			category: 'Option: Intervals'
+		}
+		intervalsPadding: {
+			description: 'Amount of padding (in bp) to add to each interval you are including. [default: 0]',
+			category: 'Option: Intervals'
+		}
+		overlappingRule: {
+			description: 'Interval merging rule for abutting intervals set to OVERLAPPING_ONLY [default: false => ALL]',
+			category: 'Option: Intervals'
+		}
+		intersectionRule: {
+			description: 'Set merging approach to use for combining interval inputs to INTERSECTION [default: false => UNION]',
+			category: 'Option: Intervals'
+		}
+		dbsnp: {
+			description: 'Path to the file containing dbsnp (format: vcf)',
+			category: 'Option: Annotation'
+		}
+		dbsnpIdx: {
+			description: 'Path to the index of dbsnp file (format: tbi)',
+			category: 'Option: Annotation'
+		}
+		createVCFIdx: {
+			description: 'If true, create a VCF index when writing a coordinate-sorted VCF file. [Default: true]',
+			category: 'Option: Output'
+		}
+		createVCFMD5: {
+			description: 'If true, create a a MD5 digest any VCF file created. [Default: true]',
+			category: 'Option: Output'
+		}
+		gvcf: {
+			description: 'If true, Mode for emitting reference confidence scores, with condensed non-variant blocks, i.e. the GVCF format. [Default: false]',
+			category: 'Option: Output'
+		}
+		maxMNPdistance: {
+			description: 'Two or more phased substitutions separated by this distance or less are merged into MNPs. [default: 0]',
+			category: 'Option: Advanced'
+		}
+		maxReadsPerStart: {
+			description: 'Maximum number of reads to retain per alignment start position. Reads above this threshold will be downsampled. Set to 0 to disable. [default: 0]',
+			category: 'Option: Advanced'
+		}
+		disableSpanningEventGenotyping: {
+			description: 'If enabled this argument will disable inclusion of the "*" spanning event when genotyping events that overlap deletions [default: true]',
+			category: 'Option: Advanced'
+		}
+		smithAndWaterman: {
+			description: 'Which Smith-Waterman implementation to use, generally FASTEST_AVAILABLE is the right choice (possible values: FASTEST_AVAILABLE, AVX_ENABLED, JAVA) [default: FASTEST_AVAILABLE]',
+			category: 'Option: Advanced'
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',
