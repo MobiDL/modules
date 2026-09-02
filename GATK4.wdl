@@ -20,8 +20,8 @@ task get_version {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-07-16"
+		version: "0.1.1"
+		date: "2026-09-02"
 	}
 
 	input {
@@ -40,7 +40,7 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		~{path_exe} --version | head -2 | head -1
+		~{path_exe} --version | head -4 | tail -1
 	>>>
 
 	output {
