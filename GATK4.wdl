@@ -950,7 +950,7 @@ task haplotypeCaller {
 		Boolean gvcf = false
 
 		## Advanced
-		Int maxMNPdistance = 0 
+		Int maxMNPdistance = 0
 		Int maxReadsPerStart = 50
 		Boolean disableSpanningEventGenotyping = true
 		String smithAndWaterman = "FASTEST_AVAILABLE"
@@ -1108,6 +1108,120 @@ task haplotypeCaller {
 		smithAndWaterman: {
 			description: 'Which Smith-Waterman implementation to use, generally FASTEST_AVAILABLE is the right choice (possible values: FASTEST_AVAILABLE, AVX_ENABLED, JAVA) [default: FASTEST_AVAILABLE]',
 			category: 'Option: Advanced'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
+			category: 'System'
+		}
+	}
+}
+
+task gatherVcfs {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-02"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		Array[File]+ vcfs
+		String? outputPath
+		String subdir = ""
+		String? name
+		String subString = "([a-zA-Z0-9_-]+)(\.[0-9]{4})?(\.[0-9a-zA-Z_-]+)?\.(vcf)(.gz)?$"
+		String subStringReplace = "$1$3.gather"
+
+		Boolean reorder = true
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String firstFile = basename(vcfs[0])
+	String baseName = if defined(name) then name else sub(basename(firstFile),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}.vcf"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputFile}) ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} GatherVcfs \
+			--INPUT ~{sep=" --INPUT " vcfs} \
+			~{true="--REORDER_INPUT_BY_FIRST_VARIANT" false="" reorder} \
+			--OUTPUT ~{outputFile}
+
+	>>>
+
+	output {
+		File outputFile = outputFile
+		File outputFileIdx = outputFile + ".idx"
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcfs}"
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		vcfs: {
+			description: 'Array of VCFs to gather.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where vcf will be generated.',
+			category: 'Output path/name option'
+		}
+		subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Substring to replace (e.g. remove extension) [default: "(\.[0-9]+)?(\.[a-zA-Z_-]+)?\.(vcf)$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'Substring used to replace (e.g. add a suffix) [default: "$2.gather.vcf"]',
+			category: 'Output path/name option'
+		}
+		reorder: {
+			description: 'If true the program will reorder INPUT according to the genomic location of the first variant in each file. [Default: true]',
+			category: 'Tool option'
+
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',
