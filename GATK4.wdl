@@ -1132,8 +1132,8 @@ task gatherVcfs {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-09-02"
+		version: "0.1.1"
+		date: "2026-09-03"
 	}
 
 	input {
@@ -1178,8 +1178,8 @@ task gatherVcfs {
 	>>>
 
 	output {
-		File outputFile = outputFile
-		File outputFileIdx = outputFile + ".idx"
+		File outputVCF = outputFile
+		File outputVCFIdx = outputFile + ".idx"
 	}
 
 	runtime {

@@ -30,7 +30,7 @@
 |               |              | ApplyBQSR                   | 0.1.1   |
 |               |              | LeftAlignIndels             | 0.1.1   |
 |               |              | HaplotypeCaller             | 0.1.0   |
-|               |              | GatherVcfs                  | 0.1.0   |
+|               |              | GatherVcfs                  | 0.1.1   |
 | jvarkit       | 2026.04.30   | vcfpolyx                    | 0.1.0   |
 | minibwa       | 0.3          | map                         | 0.1.1   |
 | Sambamba      | 1.0.1        | markdup                     | 0.1.3   |
