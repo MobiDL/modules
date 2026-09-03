@@ -1241,3 +1241,133 @@ task gatherVcfs {
 		}
 	}
 }
+
+task splitVcfs {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-03"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		File vcf
+		String outputPath
+		String subdir = ""
+		String? name
+		String subString = "\.(vcf)(.gz)?$"
+		String subStringReplace = ""
+
+		Boolean strict = true
+		Boolean index = true
+		Int max_records  = 500000
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputIndels = "~{outputPath}/~{subdir}/~{baseName}.indels.vcf"
+	String outputSnps = "~{outputPath}/~{subdir}/~{baseName}.snps.vcf"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputSnps}) ]]; then
+			mkdir -p $(dirname ~{outputSnps})
+		fi
+
+		~{path_exe} SplitVcfs \
+			--STRICT ~{true="true" false="false" strict} \
+			--CREATE_INDEX ~{true="true" false="false" strict} \
+			--MAX_RECORDS_IN_RAM ~{max_records} \
+			--INPUT ~{vcf} \
+			--INDEL_OUTPUT ~{outputIndels} \
+			--SNP_OUTPUT ~{outputSnps}
+	>>>
+
+	output {
+		File outputIndels = outputIndels
+		File? outputIndelsIdx = outputIndels + ".idx"
+		File? outputIndelsMD5 = outputIndels + ".md5"
+		File outputSnps = outputSnps
+		File? outputSnpsIdx = outputSnps + ".idx"
+		File? outputSnpsMD5 = outputSnps + ".md5"
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcf}"
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		vcf: {
+			description: 'VCFs to split.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where vcf will be generated.',
+			category: 'Output path/name option'
+		}
+		subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Substring to replace (e.g. remove extension) [default: "\.(vcf)(.gz)?$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'Substring used to replace (e.g. add a suffix) [default: ""]',
+			category: 'Output path/name option'
+		}
+		strict: {
+			description: 'Whether to create an index when writing VCF (default: true)',
+			category: 'Tool option'
+		}
+		index: {
+			description: 'If true an exception will be thrown if an event type other than SNP or indel is encountered (default: true)',
+			category: 'Tool option'
+		}
+		max_records: {
+			description: 'When writing files that need to be sorted, this will specify the number of records stored in RAM before spilling to disk. (default: 500000)',
+			category: 'Tool option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
+			category: 'System'
+		}
+	}
+}
+
