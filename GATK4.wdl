@@ -1298,10 +1298,8 @@ task splitVcfs {
 	output {
 		File outputIndels = outputIndels
 		File? outputIndelsIdx = outputIndels + ".idx"
-		File? outputIndelsMD5 = outputIndels + ".md5"
 		File outputSnps = outputSnps
 		File? outputSnpsIdx = outputSnps + ".idx"
-		File? outputSnpsMD5 = outputSnps + ".md5"
 	}
 
 	runtime {
@@ -1370,4 +1368,3 @@ task splitVcfs {
 		}
 	}
 }
-
