@@ -1368,3 +1368,130 @@ task splitVcfs {
 		}
 	}
 }
+
+task variantFiltration  {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-07"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		File vcf
+		String outputPath
+		String subdir = ""
+		String? name
+		String subString = "\.(vcf)(.gz)?$"
+		String subStringReplace = ""
+
+		Array[Pair[String, String]] filters
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputVcf = "~{outputPath}/~{subdir}/~{baseName}.filter.vcf"
+
+	File pairs = write_json(filters) 
+
+	command <<<
+		if [[ ! -d $(dirname ~{outputVcf}) ]]; then
+			mkdir -p $(dirname ~{outputVcf})
+		fi
+
+
+		declare -a FILTER_ARGS
+
+		while IFS=$'\t' read -r name expr
+		do
+			FILTER_ARGS+=( --filter-name "$name" )
+			FILTER_ARGS+=( --filter-expression "$expr" )
+		done < <(
+			jq -r '.[] | [.left,.right] | @tsv' ~{pairs}
+		)
+
+
+		FILTERS=$(jq -r 'map("--filter-name \"" + .left + "\" --filter-expression \"" + .right + "\"") | join(" ")' ~{pairs})
+
+		~{path_exe} VariantFiltration \
+			--variant ~{vcf} \
+			"${FILTER_ARGS[@]}" \
+			--output ~{outputVcf}
+			
+	>>>
+
+	output {
+		File output_vcf = outputVcf
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcf}"
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		vcf: {
+			description: 'VCFs to filter.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where vcf will be generated.',
+			category: 'Output path/name option'
+		}
+		subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Substring to replace (e.g. remove extension) [default: "\.(vcf)(.gz)?$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'Substring used to replace (e.g. add a suffix) [default: ""]',
+			category: 'Output path/name option'
+		}
+		filters: {
+			description: 'Filters to apply with their associated name as left element of pairs (e.g. [("LowCoverage", "DP < 20")])',
+			category: 'Tool option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
+			category: 'System'
+		}
+	}
+}
+
