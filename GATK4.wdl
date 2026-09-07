@@ -1385,7 +1385,7 @@ task variantFiltration  {
 		String subdir = ""
 		String? name
 		String subString = "\.(vcf)(.gz)?$"
-		String subStringReplace = ""
+		String subStringReplace = ".filter"
 
 		Array[Pair[String, String]] filters
 
@@ -1402,7 +1402,7 @@ task variantFiltration  {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
-	String outputVcf = "~{outputPath}/~{subdir}/~{baseName}.filter.vcf"
+	String outputVcf = "~{outputPath}/~{subdir}/~{baseName}.vcf"
 
 	File pairs = write_json(filters) 
 
@@ -1461,7 +1461,7 @@ task variantFiltration  {
 			category: 'Output path/name option'
 		}
 		name: {
-			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			description: 'Output file base name [default: sub(basename(firstFile),subString,subStringReplace)].',
 			category: 'Output path/name option'
 		}
 		subString: {
@@ -1469,7 +1469,7 @@ task variantFiltration  {
 			category: 'Output path/name option'
 		}
 		subStringReplace: {
-			description: 'Substring used to replace (e.g. add a suffix) [default: ""]',
+			description: 'Substring used to replace (e.g. add a suffix) [default: ".filter"]',
 			category: 'Output path/name option'
 		}
 		filters: {
@@ -1494,4 +1494,3 @@ task variantFiltration  {
 		}
 	}
 }
-
