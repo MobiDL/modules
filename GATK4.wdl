@@ -1494,3 +1494,112 @@ task variantFiltration  {
 		}
 	}
 }
+
+task mergeVcfs  {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-07"
+	}
+
+	input {
+		String path_exe = "gatk"
+
+		Array[File] vcfs
+		String outputPath
+		String subdir = ""
+		String? name
+		String subString = "\.(vcf)(.gz)?$"
+		String subStringReplace = ""
+		String suffix = ".merge"
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseName = if defined(name) then name else sub(basename(vcfs[0]),subString,subStringReplace)
+	String outputVcf = "~{outputPath}/~{subdir}/~{baseName}~{suffix}.vcf"
+
+	command <<<
+		if [[ ! -d $(dirname ~{outputVcf}) ]]; then
+			mkdir -p $(dirname ~{outputVcf})
+		fi
+
+		~{path_exe} MergeVcfs \
+			--INPUT ~{sep=' --INPUT  ' vcfs} \
+			--OUTPUT ~{outputVcf}
+			
+	>>>
+
+	output {
+		File output_vcf = outputVcf
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{sep=',' vcfs}"
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "gatk"]',
+			category: 'System'
+		}
+		vcfs: {
+			description: 'VCFs to merged.',
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Output path where vcf will be generated.',
+			category: 'Output path/name option'
+		}
+		subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Substring to replace (e.g. remove extension) [default: "\.(vcf)(.gz)?$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'Substring used to replace (e.g. add a suffix) [default: ""]',
+			category: 'Output path/name option'
+		}
+		suffix: {
+			description: 'Add suffix for ouput [default: ".merge"]',
+			category: 'Output path/name option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: gatk4:4.6.2.0]',
+			category: 'System'
+		}
+	}
+}
+
