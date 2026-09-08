@@ -1,5 +1,6 @@
 | Tool          | Version      | Task                        | Version |
 | ------------- | ------------ | --------------------------- | ------- |
+| bcftools      | 1.23.1       | norm                        | 0.1.0   |
 | Utilities     | NA           | findFiles                   | 0.0.2   |
 |               |              | convertBedToIntervals       | 0.0.1   |
 |               |              | makeLink                    | 0.0.1   |
@@ -29,6 +30,12 @@
 |               |              | GatherBQSRReports           | 0.1.1   |
 |               |              | ApplyBQSR                   | 0.1.1   |
 |               |              | LeftAlignIndels             | 0.1.1   |
+|               |              | HaplotypeCaller             | 0.1.0   |
+|               |              | GatherVcfs                  | 0.1.1   |
+|               |              | SplitVcf                    | 0.1.0   |
+|               |              | variantFiltration           | 0.1.0   |
+|               |              | mergeVcfs                   | 0.1.0   |
+| jvarkit       | 2026.04.30   | vcfpolyx                    | 0.1.0   |
 | minibwa       | 0.3          | map                         | 0.1.1   |
 | Sambamba      | 1.0.1        | markdup                     | 0.1.3   |
 |               |              | sort                        | 0.1.1   |
