@@ -1,5 +1,6 @@
 | Tool          | Version      | Task                        | Version |
 | ------------- | ------------ | --------------------------- | ------- |
+| bcftools      | 1.23.1       | norm                        | 0.1.0   |
 | Utilities     | NA           | findFiles                   | 0.0.2   |
 |               |              | convertBedToIntervals       | 0.0.1   |
 |               |              | makeLink                    | 0.0.1   |
