@@ -117,7 +117,7 @@ task norm {
 		Boolean strictFilter = false
 		Int siteWin = 1000
 
-		Int threads = 1
+		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
 		String apptainer_img = "bcftools:1.23.1"
@@ -149,23 +149,23 @@ task norm {
 		fi
 
 		~{path_exe} norm \
-			~{default="" "--check-ref " + checkRef} \
-			~{true="--remove-duplicates" false="" removeDuplicates} \
-			~{default="" "--rm-dup " + rmDupType} \
-			--fasta-ref ~{refFasta} \
-			--multiallelics ~{multiallelics} \
+			--output ~{outputFile} \
 			~{true="" false="--no-version" version} \
-			~{true="" false="--do-not-normalize" normalize} \
 			~{default="" "--regions " + regions} \
 			~{default="" "--regions-file " + regionsFile} \
 			~{default="" "--targets " + targets} \
 			~{default="" "--targets-file " + targetsFile} \
-			~{true="--strict-filter" false="" strictFilter} \
 			--output-type ~{outputType} \
-			--output ~{outputFile} \
+			~{true="-W" false="" index}~{idxFmt} \
+			--fasta-ref ~{refFasta} \
+			~{default="" "--check-ref " + checkRef} \
+			~{true="--remove-duplicates" false="" removeDuplicates} \
+			~{default="" "--rm-dup " + rmDupType} \
+			--multiallelics ~{multiallelics} \
+			~{true="" false="--do-not-normalize" normalize} \
+			~{true="--strict-filter" false="" strictFilter} \
 			--threads ~{threads - 1} \
 			--site-win ~{siteWin} \
-			~{true="-W" false="" index}~{idxFmt} \
 			~{vcf}
 
 	>>>
