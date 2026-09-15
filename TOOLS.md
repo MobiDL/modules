@@ -1,6 +1,5 @@
 | Tool          | Version      | Task                        | Version |
 | ------------- | ------------ | --------------------------- | ------- |
-| bcftools      | 1.23.1       | norm                        | 0.1.0   |
 | Utilities     | NA           | findFiles                   | 0.0.2   |
 |               |              | convertBedToIntervals       | 0.0.1   |
 |               |              | makeLink                    | 0.0.1   |
@@ -24,6 +23,8 @@
 |               |              | mkDir                       | 0.0.1   |
 |               |              | rm_files                    | 0.0.1   |
 |               |              | suffixArray                 | 0.1.0   |
+| bcftools      | 1.23.1       | norm                        | 0.1.0   |
+| DeepVariant   | 1.9.0        | deepvariant                 | 0.1.0   |
 | Fastp         | v1.3.6       | fastp                       | 0.1.3   |
 | GATK4         | v4.6.2.0     | SplitIntervals              | 0.1.2   |
 |               |              | BaseRecalibrator            | 0.1.2   |
