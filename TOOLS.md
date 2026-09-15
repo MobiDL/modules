@@ -24,6 +24,8 @@
 |               |              | rm_files                    | 0.0.1   |
 |               |              | suffixArray                 | 0.1.0   |
 | bcftools      | 1.23.1       | norm                        | 0.1.1   |
+|               |              | view                        | 0.1.0   |
+|               |              | sort                        | 0.1.0   |
 | DeepVariant   | 1.9.0        | deepvariant                 | 0.1.0   |
 | Fastp         | v1.3.6       | fastp                       | 0.1.3   |
 | GATK4         | v4.6.2.0     | SplitIntervals              | 0.1.2   |

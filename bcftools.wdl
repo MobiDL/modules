@@ -461,3 +461,132 @@ task view {
 		}
 	}
 }
+
+task sort {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-15"
+	}
+
+	input {
+		String path_exe = "bcftools"
+
+		File vcf
+		String outputPath
+		String subdir = ""
+		String? name
+		String subString = "\.(vcf|bcf)(\.gz)?$"
+		String subStringReplace = ""
+		String suffix = ".sort"
+
+		## Common options
+		Boolean version = true
+		String? regions
+		File? regionsFile
+		String? targets
+		File? targetsFile
+		String outputType = "z"
+
+		Int threads = 12
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "bcftools:1.23.1"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	Map[String,String] extType = {"v" : ".vcf", "u" : ".bcf", "z" : ".vcf.gz", "b" : ".bcf.gz"}
+	Map[String,String] idxType = {"v" : "", "u" : "csi", "z" : "tbi", "b" : "csi"}
+	Map[String,Boolean] idx = {"v" : false, "u" : true, "z" : true, "b" : true}
+
+	String ext = extType[outputType]
+	String idxFmt = idxType[outputType]
+	Boolean index = idx[outputType]
+
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
+
+	command <<<
+
+		if [[ ! -f ~{outputFile} ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} sort \
+			--output-type ~{outputType} \
+			~{true="-W" false="" index}~{idxFmt} \
+			-m ~{totalMem} \
+			--output ~{outputFile} \
+			~{vcf}
+
+	>>>
+
+	output {
+		File outputvcf = outputFile
+		File? outputidx = outputFile + "." + idxFmt
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcf}" 
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "bcftools"]',
+			category: 'System'
+		}
+		vcf: {
+			description: "VCF/BCF file to left-align and normalize indels (extension: '.vcf.gz|.bcf')",
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Path where was generated output',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(in),subString,"")].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Extension to remove from the input file [default: "\.(vcf|bcf)(\.gz)?$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'subString replace by this string [default: ""]',
+			category: 'Output path/name option'
+		}
+		suffix: {
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".view"]',
+			category: 'Output path/name option'
+		}
+		outputType: {
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: bcftools:1.23.1]',
+			category: 'System'
+		}
+	}
+}
