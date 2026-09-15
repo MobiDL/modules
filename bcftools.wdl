@@ -81,8 +81,8 @@ task norm {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-09-07"
+		version: "0.1.1"
+		date: "2026-09-15"
 	}
 
 	input {
@@ -99,27 +99,22 @@ task norm {
 		File refFasta
 		File refFai = refFasta + ".fai"
 
-		String? checkRef
-
-		Boolean removeDuplicates = false
-		String? rmDupType
-
-		Boolean splitMA = false
-		String multiallelicType = "both"
-
+		## Common options
 		Boolean version = true
-
-		Boolean normalize = true
-
 		String? regions
 		File? regionsFile
-
 		String? targets
 		File? targetsFile
-
-		Boolean strictFilter = false
 		String outputType = "z"
 
+		## Specific options
+		String? checkRef
+		Boolean removeDuplicates = false
+		String? rmDupType
+		Boolean splitMA = false
+		String multiallelicType = "both"
+		Boolean normalize = true
+		Boolean strictFilter = false
 		Int siteWin = 1000
 
 		Int threads = 1
@@ -224,6 +219,30 @@ task norm {
 			description: 'Path to the reference file index (format: fai)',
 			category: 'Required'
 		}
+		version: {
+			description: 'Append version and command line to the header [default: true]',
+			category: 'Tool option (Common)'
+		}
+		regions: {
+			description: "Restrict to comma-separated list of regions",
+			category: 'Tool option (Common)'
+		}
+		regionsFile: {
+			description: "Restrict to regions listed in a file",
+			category: 'Tool option (Common)'
+		}
+		targets: {
+			description: "Similar to 'regions' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		targetsFile: {
+			description: "Similar to 'regionsFile' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		outputType: {
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
+		}
 		checkRef: {
 			description: 'Check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [default: e]',
 			category: 'Tool option'
@@ -244,32 +263,8 @@ task norm {
 			description: "Type of Multiallelics to treat for split/join (type: snps|indels|both|any) [default: both]",
 			category: 'Tool option'
 		}
-		version: {
-			description: 'Append version and command line to the header [default: true]',
-			category: 'Tool option'
-		}
 		normalize: {
 			description: 'Normalize indels (with -m or -c s) [default: true]',
-			category: 'Tool option'
-		}
-		outputType: {
-			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
-			category: 'Tool option'
-		}
-		regions: {
-			description: "Restrict to comma-separated list of regions",
-			category: 'Tool option'
-		}
-		regionsFile: {
-			description: "Restrict to regions listed in a file",
-			category: 'Tool option'
-		}
-		targets: {
-			description: "Similar to 'regions' but streams rather than index-jumps",
-			category: 'Tool option'
-		}
-		targetsFile: {
-			description: "Similar to 'regionsFile' but streams rather than index-jumps",
 			category: 'Tool option'
 		}
 		strictFilter: {
