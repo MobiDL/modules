@@ -83,7 +83,7 @@ task deepvariant {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
 		version: "0.1.0"
-		date: "2026-09-14"
+		date: "2026-09-15"
 	}
 
 	input {
@@ -99,6 +99,10 @@ task deepvariant {
 
 		File refFasta
 		File refFai = refFasta + ".fai"
+
+		Boolean gunzip = true
+
+		Array[String]? postprocess_variants_extra_args
 
 		File? bed
 		
@@ -117,7 +121,8 @@ task deepvariant {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(name) then name else sub(basename(bam),"\.(bam|cram)$","")
-	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}.vcf"
+	String ext = if gunzip then ".vcf.gz" else ".vcf"
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	command <<<
 		if [[ ! -d $(dirname ~{outputFile}) ]]; then
@@ -129,12 +134,18 @@ task deepvariant {
 			--ref ~{refFasta} \
 			--model_type ~{model} \
 			~{default="" "--regions " + bed} \
+			~{true="--postprocess_variants_extra_args" false="" defined(postprocess_variants_extra_args)} ~{default=""  sep="," postprocess_variants_extra_args} \
 			--num_shards ~{threads} \
 			--output_vcf ~{outputFile}
 	>>>
 
+	output {
+		File outputVcf = outputFile
+		File? outputVcfIdx = outputFile + ".tbi"
+	}
+
 	runtime {
-		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{fasta}" + "," + "~{bam}" + "~{default='' ',' + bed}"
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{bam}" + "~{default='' ',' + bed}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
@@ -163,11 +174,11 @@ task deepvariant {
 			category: 'Output path/name option'
 		}
 		name: {
-			description: 'Output file base name [default: sub(basename(firstFile),subString,"")].',
+			description: 'Output file base name [default: sub(basename(bam),"\.(bam|cram)$","")].',
 			category: 'Output path/name option'
 		}
 		suffix: {
-			description: 'Suffix to add for the output file (e.g sample.suffix.bam)[default: ".dv"]',
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".dv"]',
 			category: 'Output path/name option'
 		}
 		refFasta: {
