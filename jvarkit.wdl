@@ -81,8 +81,8 @@ task vcfpolyx {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-09-03"
+		version: "0.1.1"
+		date: "2026-09-16"
 	}
 
 	input {
@@ -119,7 +119,7 @@ task vcfpolyx {
 
 	String ext = if bcf then ".bcf" else ".vcf"
 
-	String baseName = if defined(name) then name else sub(basename(vcf),"\.(vcf|bcf)$","")
+	String baseName = if defined(name) then name else sub(basename(vcf),"\.(vcf|bcf)(.gz)?$","")
 	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	command <<<
