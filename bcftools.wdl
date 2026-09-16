@@ -81,8 +81,8 @@ task norm {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-09-07"
+		version: "0.1.1"
+		date: "2026-09-15"
 	}
 
 	input {
@@ -99,30 +99,25 @@ task norm {
 		File refFasta
 		File refFai = refFasta + ".fai"
 
-		String? checkRef
-
-		Boolean removeDuplicates = false
-		String? rmDupType
-
-		Boolean splitMA = false
-		String multiallelicType = "both"
-
+		## Common options
 		Boolean version = true
-
-		Boolean normalize = true
-
 		String? regions
 		File? regionsFile
-
 		String? targets
 		File? targetsFile
-
-		Boolean strictFilter = false
 		String outputType = "z"
 
+		## Specific options
+		String? checkRef
+		Boolean removeDuplicates = false
+		String? rmDupType
+		Boolean splitMA = false
+		String multiallelicType = "both"
+		Boolean normalize = true
+		Boolean strictFilter = false
 		Int siteWin = 1000
 
-		Int threads = 1
+		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
 		String apptainer_img = "bcftools:1.23.1"
@@ -154,23 +149,23 @@ task norm {
 		fi
 
 		~{path_exe} norm \
-			~{default="" "--check-ref " + checkRef} \
-			~{true="--remove-duplicates" false="" removeDuplicates} \
-			~{default="" "--rm-dup " + rmDupType} \
-			--fasta-ref ~{refFasta} \
-			--multiallelics ~{multiallelics} \
+			--output ~{outputFile} \
 			~{true="" false="--no-version" version} \
-			~{true="" false="--do-not-normalize" normalize} \
 			~{default="" "--regions " + regions} \
 			~{default="" "--regions-file " + regionsFile} \
 			~{default="" "--targets " + targets} \
 			~{default="" "--targets-file " + targetsFile} \
-			~{true="--strict-filter" false="" strictFilter} \
 			--output-type ~{outputType} \
-			--output ~{outputFile} \
+			~{true="-W" false="" index}~{idxFmt} \
+			--fasta-ref ~{refFasta} \
+			~{default="" "--check-ref " + checkRef} \
+			~{true="--remove-duplicates" false="" removeDuplicates} \
+			~{default="" "--rm-dup " + rmDupType} \
+			--multiallelics ~{multiallelics} \
+			~{true="" false="--do-not-normalize" normalize} \
+			~{true="--strict-filter" false="" strictFilter} \
 			--threads ~{threads - 1} \
 			--site-win ~{siteWin} \
-			~{true="-W" false="" index}~{idxFmt} \
 			~{vcf}
 
 	>>>
@@ -224,6 +219,30 @@ task norm {
 			description: 'Path to the reference file index (format: fai)',
 			category: 'Required'
 		}
+		version: {
+			description: 'Append version and command line to the header [default: true]',
+			category: 'Tool option (Common)'
+		}
+		regions: {
+			description: "Restrict to comma-separated list of regions",
+			category: 'Tool option (Common)'
+		}
+		regionsFile: {
+			description: "Restrict to regions listed in a file",
+			category: 'Tool option (Common)'
+		}
+		targets: {
+			description: "Similar to 'regions' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		targetsFile: {
+			description: "Similar to 'regionsFile' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		outputType: {
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
+		}
 		checkRef: {
 			description: 'Check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [default: e]',
 			category: 'Tool option'
@@ -244,32 +263,8 @@ task norm {
 			description: "Type of Multiallelics to treat for split/join (type: snps|indels|both|any) [default: both]",
 			category: 'Tool option'
 		}
-		version: {
-			description: 'Append version and command line to the header [default: true]',
-			category: 'Tool option'
-		}
 		normalize: {
 			description: 'Normalize indels (with -m or -c s) [default: true]',
-			category: 'Tool option'
-		}
-		outputType: {
-			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
-			category: 'Tool option'
-		}
-		regions: {
-			description: "Restrict to comma-separated list of regions",
-			category: 'Tool option'
-		}
-		regionsFile: {
-			description: "Restrict to regions listed in a file",
-			category: 'Tool option'
-		}
-		targets: {
-			description: "Similar to 'regions' but streams rather than index-jumps",
-			category: 'Tool option'
-		}
-		targetsFile: {
-			description: "Similar to 'regionsFile' but streams rather than index-jumps",
 			category: 'Tool option'
 		}
 		strictFilter: {
@@ -279,6 +274,303 @@ task norm {
 		siteWin: {
 			description: "Buffer for sorting lines which changed position during realignment [default: 1000]",
 			category: 'Tool option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: bcftools:1.23.1]',
+			category: 'System'
+		}
+	}
+}
+
+task view {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-15"
+	}
+
+	input {
+		String path_exe = "bcftools"
+
+		File vcf
+		String outputPath
+		String subdir = ""
+		String? name
+		String subString = "\.(vcf|bcf)(\.gz)?$"
+		String subStringReplace = ""
+		String suffix = ".view"
+
+		## Common options
+		Boolean version = true
+		String? regions
+		File? regionsFile
+		String? targets
+		File? targetsFile
+		String outputType = "z"
+
+		## Specific options
+		Boolean trimUnseen = false
+		String? include
+
+		Int threads = 12
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "bcftools:1.23.1"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	Map[String,String] extType = {"v" : ".vcf", "u" : ".bcf", "z" : ".vcf.gz", "b" : ".bcf.gz"}
+	Map[String,String] idxType = {"v" : "", "u" : "csi", "z" : "tbi", "b" : "csi"}
+	Map[String,Boolean] idx = {"v" : false, "u" : true, "z" : true, "b" : true}
+
+	String ext = extType[outputType]
+	String idxFmt = idxType[outputType]
+	Boolean index = idx[outputType]
+
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
+
+	command <<<
+
+		if [[ ! -f ~{outputFile} ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} view \
+			~{true="" false="--no-version" version} \
+			~{default="" "--regions " + regions} \
+			~{default="" "--regions-file " + regionsFile} \
+			~{default="" "--targets " + targets} \
+			~{default="" "--targets-file " + targetsFile} \
+			--output-type ~{outputType} \
+			~{true="-W" false="" index}~{idxFmt} \
+			~{true="--trim-unseen-alleles" false="" trimUnseen} \
+			~{default="" '--include "' + include}~{true='"' false="" defined(include)} \
+			--output ~{outputFile} \
+			--threads ~{threads - 1} \
+			~{vcf}
+
+	>>>
+
+	output {
+		File outputvcf = outputFile
+		File? outputidx = outputFile + "." + idxFmt
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcf}" + "~{default='' ',' + regionsFile}"  + "~{default='' ',' + targetsFile}" 
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "bcftools"]',
+			category: 'System'
+		}
+		vcf: {
+			description: "VCF/BCF file to left-align and normalize indels (extension: '.vcf.gz|.bcf')",
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Path where was generated output',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(in),subString,"")].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Extension to remove from the input file [default: "\.(vcf|bcf)(\.gz)?$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'subString replace by this string [default: ""]',
+			category: 'Output path/name option'
+		}
+		suffix: {
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".view"]',
+			category: 'Output path/name option'
+		}
+		version: {
+			description: 'Append version and command line to the header [default: true]',
+			category: 'Tool option (Common)'
+		}
+		regions: {
+			description: "Restrict to comma-separated list of regions",
+			category: 'Tool option (Common)'
+		}
+		regionsFile: {
+			description: "Restrict to regions listed in a file",
+			category: 'Tool option (Common)'
+		}
+		targets: {
+			description: "Similar to 'regions' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		targetsFile: {
+			description: "Similar to 'regionsFile' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		outputType: {
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
+		}
+		trimUnseen: {
+			description: 'remove the unseen allele <*> or <NON_REF> at variant sites',
+			category: 'Tool option'
+		}
+		include: {
+			description: 'include sites for which this expression is true.',
+			category: 'Tool option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: bcftools:1.23.1]',
+			category: 'System'
+		}
+	}
+}
+
+task sort {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-15"
+	}
+
+	input {
+		String path_exe = "bcftools"
+
+		File vcf
+		String outputPath
+		String subdir = ""
+		String? name
+		String subString = "\.(vcf|bcf)(\.gz)?$"
+		String subStringReplace = ""
+		String suffix = ".sort"
+
+		## Common options
+		Boolean version = true
+		String? regions
+		File? regionsFile
+		String? targets
+		File? targetsFile
+		String outputType = "z"
+
+		Int threads = 12
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "bcftools:1.23.1"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	Map[String,String] extType = {"v" : ".vcf", "u" : ".bcf", "z" : ".vcf.gz", "b" : ".bcf.gz"}
+	Map[String,String] idxType = {"v" : "", "u" : "csi", "z" : "tbi", "b" : "csi"}
+	Map[String,Boolean] idx = {"v" : false, "u" : true, "z" : true, "b" : true}
+
+	String ext = extType[outputType]
+	String idxFmt = idxType[outputType]
+	Boolean index = idx[outputType]
+
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
+
+	command <<<
+
+		if [[ ! -f ~{outputFile} ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} sort \
+			--output-type ~{outputType} \
+			~{true="-W" false="" index}~{idxFmt} \
+			-m ~{totalMem} \
+			--output ~{outputFile} \
+			~{vcf}
+
+	>>>
+
+	output {
+		File outputvcf = outputFile
+		File? outputidx = outputFile + "." + idxFmt
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcf}" 
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "bcftools"]',
+			category: 'System'
+		}
+		vcf: {
+			description: "VCF/BCF file to left-align and normalize indels (extension: '.vcf.gz|.bcf')",
+			category: 'Required'
+		}
+		outputPath: {
+			description: 'Path where was generated output',
+			category: 'Output path/name option'
+		}
+		name: {
+			description: 'Output file base name [default: sub(basename(in),subString,"")].',
+			category: 'Output path/name option'
+		}
+		subString: {
+			description: 'Extension to remove from the input file [default: "\.(vcf|bcf)(\.gz)?$"]',
+			category: 'Output path/name option'
+		}
+		subStringReplace: {
+			description: 'subString replace by this string [default: ""]',
+			category: 'Output path/name option'
+		}
+		suffix: {
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".view"]',
+			category: 'Output path/name option'
+		}
+		outputType: {
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',

@@ -1,7 +1,7 @@
 version 1.0
 
 # MobiDL 2.0 - MobiDL 2 is a collection of tools wrapped in WDL to be used in any WDL pipelines.
-# Copyright (C) 2021 MoBiDiC
+# Copyright (C) 2026 MoBiDiC
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,16 +21,16 @@ task get_version {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
 		version: "0.1.0"
-		date: "2026-09-02"
+		date: "2026-09-14"
 	}
 
 	input {
-		String path_exe = "jvarkit"
+		String path_exe = "deepvariant"
 
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
-		String apptainer_img = "jvarkit:2026.04.30"
+		String apptainer_img = "deepvariant:1.9.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -40,7 +40,7 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		echo "jvarkit $(~{path_exe} --version)"
+		~{path_exe} --version
 	>>>
 
 	output {
@@ -51,11 +51,12 @@ task get_version {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
+		queue: "avx"
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "jvarkit"]',
+			description: 'Path used as executable [default: "deepvariant"]',
 			category: 'System'
 		}
 		threads: {
@@ -71,44 +72,46 @@ task get_version {
 			category: 'System'
 		}
 		apptainer_img: {
-			description: 'Sets the apptainer image you want to use [default: jvarkit:2026.04.30]',
+			description: 'Sets the apptainer image you want to use [default: deepvariant:1.9.0]',
 			category: 'System'
 		}
 	}
 }
 
-task vcfpolyx {
+task deepvariant {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.1"
-		date: "2026-09-16"
+		version: "0.1.0"
+		date: "2026-09-15"
 	}
 
 	input {
-		String path_exe = "jvarkit"
+		String path_exe = "deepvariant"
 
-		File vcf
+		File bam
+		File bai = bam + ".bai"
+
 		String outputPath
 		String subdir = ""
-		String suffix = ".polyx"
 		String? name
-		
+		String suffix = ".dv"
+
 		File refFasta
 		File refFai = refFasta + ".fai"
-		File refDict = sub(refFasta, "(.*).(fa|fasta)", "$1.dict")
 
-		Boolean bcf = false
-		Boolean md5 = false
-		Boolean skip = false
-		Int repeats = -1
-		String tag = "POLYX"
+		Boolean gunzip = true
 
+		Array[String]? postprocess_variants_extra_args
 
-		Int threads = 1
+		File? bed
+		
+		String model = "WES"
+
+		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
-		String apptainer_img = "jvarkit:2026.04.30"
+		String apptainer_img = "deepvariant:1.9.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -117,9 +120,8 @@ task vcfpolyx {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String ext = if bcf then ".bcf" else ".vcf"
-
-	String baseName = if defined(name) then name else sub(basename(vcf),"\.(vcf|bcf)(.gz)?$","")
+	String baseName = if defined(name) then name else sub(basename(bam),"\.(bam|cram)$","")
+	String ext = if gunzip then ".vcf.gz" else ".vcf"
 	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	command <<<
@@ -127,52 +129,56 @@ task vcfpolyx {
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		~{path_exe} vcfpolyx \
-			~{true="--bcf-output" false="" bcf} \
-			~{true="--generate-vcf-md5" false="" md5} \
-			~{true="--skip-filtered" false="" skip} \
-			--tag ~{tag} \
-			--max-repeats ~{repeats} \
-			--reference ~{refFasta} \
-			--out ~{outputFile} \
-			~{vcf}
+		~{path_exe} \
+			--reads ~{bam} \
+			--ref ~{refFasta} \
+			--model_type ~{model} \
+			~{default="" "--regions " + bed} \
+			~{true="--postprocess_variants_extra_args" false="" defined(postprocess_variants_extra_args)} ~{default=""  sep="," postprocess_variants_extra_args} \
+			--num_shards ~{threads} \
+			--output_vcf ~{outputFile}
 	>>>
 
 	output {
-		File output_vcf = outputFile
-		File? output_md5 = outputFile + ".md5"
+		File outputVcf = outputFile
+		File? outputVcfIdx = outputFile + ".tbi"
 	}
 
 	runtime {
-		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{vcf}"
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{bam}" + "~{default='' ',' + bed}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
 		docker: "~{apptainer_img}"
+		queue: "avx"  ## https://cromwell.readthedocs.io/en/latest/RuntimeAttributes/
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "jvarkit"]',
+			description: 'Path used as executable [default: "deepvariant"]',
 			category: 'System'
 		}
-		vcf: {
-			description: "VCF/BCF file to tagged (extension: '.vcf|.bcf')",
+		bam: {
+			description: 'Bam file.',
+			category: 'Required'
+		}
+		bai: {
+			description: 'Index for the alignement input file to recalibrate.',
 			category: 'Required'
 		}
 		outputPath: {
-			description: 'Output path where vcf will be generated.',
+			description: 'Output path where bam will be generated.',
 			category: 'Output path/name option'
 		}
 		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
 		}
-		suffix: {
-			description: 'Suffix to add on the output file (e.g. sample.suffix.vcf) [default: ".polyx"]',
+		name: {
+			description: 'Output file base name [default: sub(basename(bam),"\.(bam|cram)$","")].',
 			category: 'Output path/name option'
 		}
-		name: {
-			description: 'Output file base name [default: sub(basename(vcf),"\.(vcf|bcf)$","")].',
+		suffix: {
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".dv"]',
 			category: 'Output path/name option'
 		}
 		refFasta: {
@@ -183,32 +189,16 @@ task vcfpolyx {
 			description: 'Path to the reference file index (format: fai)',
 			category: 'Required'
 		}
-		refDict: {
-			description: 'Path to the reference file dict (format: dict)',
-			category: 'Required'
-		}
-		bcf: {
-			description: 'The current supported BCF version is : 2.1 which is not compatible with bcftools/htslib (default: false)',
+		bed: {
+			description: "Space-separated list of regions we want to process (bed or intervals)",
 			category: 'Tool option'
 		}
-		md5: {
-			description: 'Generate MD5 checksum for VCF output. (default: false)',
-			category: 'Tool option'
-		}
-		skip: {
-			description: "Don't spend some time to calculate the tag if the variant is FILTERed (default: false)",
-			category: 'Tool option'
-		}
-		repeats: {
-			description: 'if number of repeated bases is greater or equal to "n" set a FILTER = (tag) (default: -1)',
-			category: 'Tool option'
-		}
-		tag: {
-			description: 'Tag used in INFO and FILTER columns. (default: "POLYX")',
+		model: {
+			description: "Type of model to use for variant calling. (default : WES)",
 			category: 'Tool option'
 		}
 		threads: {
-			description: 'Sets the number of threads [default: 1]',
+			description: 'Sets the number of threads [default: 12]',
 			category: 'System'
 		}
 		memory: {
@@ -220,7 +210,7 @@ task vcfpolyx {
 			category: 'System'
 		}
 		apptainer_img: {
-			description: 'Sets the apptainer image you want to use [default: GATK4:4.6.2.0]',
+			description: 'Sets the apptainer image you want to use [default: deepvariant:1.9.0]',
 			category: 'System'
 		}
 	}
