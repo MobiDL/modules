@@ -16,6 +16,8 @@ version 1.0
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+# Those modules are compatible with deepsomatic
+
 task get_version {
 	meta {
 		author: "Charles VAN GOETHEM"
@@ -25,12 +27,12 @@ task get_version {
 	}
 
 	input {
-		String path_exe = "deepvariant"
+		String path_exe = "deepvariant" # or deepsomatic
 
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
-		String apptainer_img = "deepvariant:1.9.0"
+		String apptainer_img = "deepvariant:1.9.0" # or deepsomatic
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -82,12 +84,12 @@ task deepvariant {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.1.0"
-		date: "2026-09-15"
+		version: "0.2.0"
+		date: "2026-09-21"
 	}
 
 	input {
-		String path_exe = "deepvariant"
+		String path_exe = "deepvariant" # or deepsomatic
 
 		File bam
 		File bai = bam + ".bai"
@@ -103,15 +105,18 @@ task deepvariant {
 		Boolean gunzip = true
 
 		Array[String]? postprocess_variants_extra_args
+		Array[String]? make_examples_extra_args
 
 		File? bed
 		
 		String model = "WES"
+		Boolean default_pon_filtering = false
+		Boolean tumor = false
 
 		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
-		String apptainer_img = "deepvariant:1.9.0"
+		String apptainer_img = "deepvariant:1.9.0" # or deepsomatic
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -130,12 +135,14 @@ task deepvariant {
 		fi
 
 		~{path_exe} \
-			--reads ~{bam} \
+			--reads~{true="_tumor" false="" tumor} ~{bam} \
 			--ref ~{refFasta} \
 			--model_type ~{model} \
 			~{default="" "--regions " + bed} \
 			~{true="--postprocess_variants_extra_args" false="" defined(postprocess_variants_extra_args)} ~{default=""  sep="," postprocess_variants_extra_args} \
+			~{true="--make_examples_extra_args" false="" defined(make_examples_extra_args)} ~{default=""  sep="," make_examples_extra_args} \
 			--num_shards ~{threads} \
+			~{true="use_default_pon_filtering" false="" default_pon_filtering} \
 			--output_vcf ~{outputFile}
 	>>>
 
@@ -196,6 +203,22 @@ task deepvariant {
 		model: {
 			description: "Type of model to use for variant calling. (default : WES)",
 			category: 'Tool option'
+		}
+		default_pon_filtering: {
+			description: "If true then default PON filtering will be used in tumor-only models. [default=false]",
+			category: "Tool option"
+		}
+		tumor: {
+			description: "Use with deepsomatic",
+			category: "Tool option"
+		}
+		postprocess_variants_extra_args: {
+			description: "List of flag_name=flag_value",
+			category: "Tool option"
+		}
+		make_examples_extra_args: {
+			description: "List of flag_name=flag_value",
+			category: "Tool option"
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 12]',
