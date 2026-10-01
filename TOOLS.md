@@ -42,4 +42,5 @@
 | minibwa       | 0.3          | map                         | 0.1.1   |
 | Sambamba      | 1.0.1        | markdup                     | 0.1.3   |
 |               |              | sort                        | 0.1.1   |
+|               |              | flagstat                    | 0.1.0   |
 | Samtools      | 1.23.1       | sort                        | 0.1.2   |

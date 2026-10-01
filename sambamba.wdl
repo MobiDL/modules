@@ -159,10 +159,10 @@ task markdup {
 			description: 'Output path where bam file was generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
-        subdir: {
+		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
-        }
+		}
 		sample: {
 			description: 'Sample name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Output path/name option'
@@ -298,10 +298,10 @@ task sort {
 			description: 'Output path where bam file was generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
-        subdir: {
+		subdir: {
 			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
-        }
+		}
 		sample: {
 			description: 'Sample name to use for output file name [default: sub(basename(in),"(\.bam|\.sam|\.cram)","")]',
 			category: 'Output path/name option'
@@ -333,6 +333,105 @@ task sort {
 		uncompressedChuncks: {
 			description: 'Write sorted chunks as uncompressed BAM (default is writing with compression level 1), that might be faster in some cases but uses more disk space',
 			category: 'Tool option'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memory: {
+			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: sambamba:1.0.1]',
+			category: 'System'
+		}
+	}
+}
+
+task flagstat {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.1.0"
+		date: "2026-09-30"
+	}
+
+	input {
+		String path_exe = "sambamba"
+
+		File bam
+		String outputPath
+		String subdir = ""
+		String? sample
+		String suffix = ".flagstat"
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "sambamba:1.0.1"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String sampleName = if defined(sample) then sample else sub(basename(bam),"(\.bam|\.sam|\.cram)","")
+	String outputStat = "~{outputPath}/~{subdir}/~{sampleName}~{suffix}"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputStat}) ]]; then
+			mkdir -p $(dirname ~{outputStat})
+		fi
+
+		~{path_exe} flagstat \
+			--nthreads ~{threads} \
+			"~{bam}" > "~{outputStat}"
+
+	>>>
+
+	output {
+		File outputStat = "~{outputStat}"
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{bam}"
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		path_exe: {
+			description: 'Path used as executable [default: "sambamba"]',
+			category: 'System'
+		}
+		outputPath: {
+			description: 'Output path where bam file was generated. [default: pwd()]',
+			category: 'Output path/name option'
+		}
+		subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+		}
+		sample: {
+			description: 'Sample name to use for output file name [default: sub(basename(bam),"(\.bam|\.sam|\.cram)","")]',
+			category: 'Output path/name option'
+		}
+		bam: {
+			description: 'Bam file to mark or remove duplicates.',
+			category: 'Required'
+		}
+		suffix: {
+			description: 'Suffix to add on the output file (e.g. sample.suffix) [default: ".flagstat"]',
+			category: 'Output path/name option'
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',
