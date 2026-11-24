@@ -20,16 +20,17 @@ task get_version {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2021-04-29"
+		version: "0.1.0"
+		date: "2026-09-02"
 	}
 
 	input {
-		String path_exe = "seqkit"
+		String path_exe = "jvarkit"
 
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "jvarkit:2026.04.30"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -39,7 +40,7 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		~{path_exe} version
+		echo "jvarkit $(~{path_exe} --version)"
 	>>>
 
 	output {
@@ -49,11 +50,12 @@ task get_version {
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "seqkit"]',
+			description: 'Path used as executable [default: "jvarkit"]',
 			category: 'System'
 		}
 		threads: {
@@ -68,37 +70,45 @@ task get_version {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: jvarkit:2026.04.30]',
+			category: 'System'
+		}
 	}
 }
 
-task seq_filter {
+task vcfpolyx {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2021-05-10"
+		version: "0.1.1"
+		date: "2026-09-16"
 	}
 
 	input {
-		String path_exe = "seqkit"
+		String path_exe = "jvarkit"
 
-		File in
-		String? outputPath
+		File vcf
+		String outputPath
+		String subdir = ""
+		String suffix = ".polyx"
 		String? name
-		String subString = ".fastq"
-		String subStringReplace = ".filter.fastq"
+		
+		File refFasta
+		File refFai = refFasta + ".fai"
+		File refDict = sub(refFasta, "(.*).(fa|fasta)", "$1.dict")
 
-		Int? maxLen
-		Int? maxQual
-		Int? minLen
-		Int? minQual
+		Boolean bcf = false
+		Boolean md5 = false
+		Boolean skip = false
+		Int repeats = -1
+		String tag = "POLYX"
 
-		String idRegexp = "^(\\S+)\\s?"
-		String seqType = "auto"
 
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "jvarkit:2026.04.30"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -107,83 +117,95 @@ task seq_filter {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
+	String ext = if bcf then ".bcf" else ".vcf"
+
+	String baseName = if defined(name) then name else sub(basename(vcf),"\.(vcf|bcf)(.gz)?$","")
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	command <<<
-
 		if [[ ! -d $(dirname ~{outputFile}) ]]; then
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		~{path_exe} seq \
-			--max-len ~{default="-1" maxLen} \
-			--max-qual ~{default="-1" maxQual} \
-			--min-len ~{default="-1" minLen} \
-			--min-qual ~{default="-1" minQual} \
-			--out-file ~{outputFile} \
-			--threads ~{threads} \
-			~{in}
-
+		~{path_exe} vcfpolyx \
+			~{true="--bcf-output" false="" bcf} \
+			~{true="--generate-vcf-md5" false="" md5} \
+			~{true="--skip-filtered" false="" skip} \
+			--tag ~{tag} \
+			--max-repeats ~{repeats} \
+			--reference ~{refFasta} \
+			--out ~{outputFile} \
+			~{vcf}
 	>>>
 
 	output {
-		File outputFile = outputFile
+		File output_vcf = outputFile
+		File? output_md5 = outputFile + ".md5"
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{vcf}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "seqkit"]',
+			description: 'Path used as executable [default: "jvarkit"]',
 			category: 'System'
 		}
-		in: {
-			description: "File used as input",
+		vcf: {
+			description: "VCF/BCF file to tagged (extension: '.vcf|.bcf')",
 			category: 'Required'
 		}
 		outputPath: {
-			description: 'Output path',
+			description: 'Output path where vcf will be generated.',
+			category: 'Output path/name option'
+		}
+		subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+		}
+		suffix: {
+			description: 'Suffix to add on the output file (e.g. sample.suffix.vcf) [default: ".polyx"]',
 			category: 'Output path/name option'
 		}
 		name: {
-			description: 'Output name',
+			description: 'Output file base name [default: sub(basename(vcf),"\.(vcf|bcf)$","")].',
 			category: 'Output path/name option'
 		}
-		subString: {
-			description: 'Substring to edit from input file to create output [default: ".fastq"]',
-			category: 'Output path/name option'
+		refFasta: {
+			description: 'Path to the reference file (format: fasta)',
+			category: 'Required'
 		}
-		subStringReplace: {
-			description: 'Substring used to edit input file [default: ".filter.fastq"]',
-			category: 'Output path/name option'
+		refFai: {
+			description: 'Path to the reference file index (format: fai)',
+			category: 'Required'
 		}
-		maxLen: {
-			description: 'Only print sequences shorter than the maximum length (-1 for no limit)',
-			category: 'Option filter'
+		refDict: {
+			description: 'Path to the reference file dict (format: dict)',
+			category: 'Required'
 		}
-		maxQual: {
-			description: 'Only print sequences with average quality less than this limit (-1 for no limit)',
-			category: 'Option filter'
+		bcf: {
+			description: 'The current supported BCF version is : 2.1 which is not compatible with bcftools/htslib (default: false)',
+			category: 'Tool option'
 		}
-		minLen: {
-			description: 'Only print sequences longer than the minimum length (-1 for no limit)',
-			category: 'Option filter'
+		md5: {
+			description: 'Generate MD5 checksum for VCF output. (default: false)',
+			category: 'Tool option'
 		}
-		minQual: {
-			description: 'Only print sequences with average quality greater or equal than this limit (-1 for no limit)',
-			category: 'Option filter'
+		skip: {
+			description: "Don't spend some time to calculate the tag if the variant is FILTERed (default: false)",
+			category: 'Tool option'
 		}
-		idRegexp: {
-			description: 'Regular expression for parsing ID [default: "^(\\S+)\\s?"]',
-			category: 'Option global'
+		repeats: {
+			description: 'if number of repeated bases is greater or equal to "n" set a FILTER = (tag) (default: -1)',
+			category: 'Tool option'
 		}
-		seqType: {
-			description: 'Sequence type (dna|rna|protein|unlimit|auto) (for auto, it automatically detect by the first sequence) [default: "auto"]',
-			category: 'Option global'
+		tag: {
+			description: 'Tag used in INFO and FILTER columns. (default: "POLYX")',
+			category: 'Tool option'
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',
@@ -195,6 +217,10 @@ task seq_filter {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: GATK4:4.6.2.0]',
 			category: 'System'
 		}
 	}

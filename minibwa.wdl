@@ -1,7 +1,7 @@
 version 1.0
 
 # MobiDL 2.0 - MobiDL 2 is a collection of tools wrapped in WDL to be used in any WDL pipelines.
-# Copyright (C) 2021 MoBiDiC
+# Copyright (C) 2026 MoBiDiC
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,18 +18,19 @@ version 1.0
 
 task get_version {
 	meta {
-		author: "Charles VAN GOETHEM"
+		author: "Charles Van Goethem"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-11-20"
+		version: "0.1.0"
+		date: "2026-07-15"
 	}
 
 	input {
-		String path_exe = "tabix"
+		String path_exe = "minibwa"
 
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "minibwa:0.3"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -39,21 +40,22 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		~{path_exe} --version
+		~{path_exe} version
 	>>>
 
 	output {
-		String version = read_string(stdout())
+		String version = "minibwa ~{stdout()}"
 	}
 
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "tabix"]',
+			description: 'Path used as executable [default: "minibwa"]',
 			category: 'System'
 		}
 		threads: {
@@ -66,33 +68,45 @@ task get_version {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: minibwa:0.3]',
 			category: 'System'
 		}
 	}
 }
 
-task index {
+task map {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-08-12"
+		version: "0.1.1"
+		date: "2026-08-22"
 	}
 
 	input {
-		String path_exe = "tabix"
+		String path_exe = "minibwa"
 
-		File in
-		String? outputPath
-		String? name
+		String outputPath
+		String subdir = ""
+		String? sample
+		String subString = ".(fastq|fq)(.gz)?"
+		String subStringReplace = ""
 
-		Boolean csi = false
-		String? preset
-		Int? minShift
+		String platform="AVITI"
+
+		File fastqR1
+		File fastqR2
+
+		File fasta
+		File fasta_l2b = fasta + ".l2b"
+		File fasta_mbw = fasta + ".mbw"
 
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "minibwa:0.3"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -101,66 +115,84 @@ task index {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String extIn = sub(basename(in),".*\.(gff|bed|sam|vcf)\.gz$","$1")
-	Boolean csiUsed = (csi || defined(minShift))
-	String extOut = if csiUsed then ".csi" else ".tbi"
-
-	String baseName = if defined(name) then name else basename(in)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{extOut}" else "~{baseName}~{extOut}"
+	String baseName = if defined(sample) then sample else sub(basename(fastqR1),subString,subStringReplace)
+	String outputBase = "~{outputPath}/~{subdir}/~{baseName}"
 
 	command <<<
 
-		if [[ ! -d $(dirname ~{outputFile}) ]]; then
-			mkdir -p $(dirname ~{outputFile})
+		if [[ ! -d $(dirname ~{outputBase}) ]]; then
+			mkdir -p $(dirname ~{outputBase})
 		fi
 
-		~{path_exe} \
-			~{default="" "--preset " + preset} \
-			~{default="" "--min-shift " + minShift} \
-			~{true="--csi" false="" csiUsed} \
-			~{in}
-
-		mv ~{in}~{extOut} ~{outputFile}
+		~{path_exe} map \
+			-t ~{threads} \
+			-R "@RG\tID:~{baseName}\tSM:~{baseName}\tPL:~{platform}" \
+			"~{fasta}" \
+			"~{fastqR1}" \
+			"~{fastqR2}" \
+			-o "~{outputBase}.sam"
 
 	>>>
 
 	output {
-		File outputFile = outputFile
+		File sam = "~{outputBase}.sam"
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{fasta}" + "," + "~{fastqR1}" + "," + "~{fastqR2}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "sambamba"]',
+			description: 'Path used as executable [default: "minibwa"]',
 			category: 'System'
 		}
 		outputPath: {
-			description: 'Output path where bam file was generated. [default: pwd()]',
+			description: 'Output path where files will be generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
-		name: {
-			description: 'Name to use for output file name [default: basename(in)]',
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
+		sample: {
+			description: 'Sample name to use for output file name [default: sub(basename(fastqR1),subString,"")]',
 			category: 'Output path/name option'
 		}
-		in: {
-			description: 'File to index with tabix.',
-			category: 'Required'
+		subString: {
+			description: 'Substring to remove to get sample name [default: ".(fastq|fq)(.gz)?"]',
+			category: 'Output path/name option'
 		}
-		csi: {
-			description: 'Generate CSI index for VCF (otherwise is TBI) [default: false]',
-			category: 'Tool option'
+		subStringReplace: {
+			description: 'subString replace by this string [default: ""]',
+			category: 'Output path/name option'
 		}
-		preset: {
-			description: 'Input format for indexing. Valid values are: gff, bed, sam, vcf.',
-			category: 'Tool option'
+		fastqR1: {
+			description: 'Input file with reads 1 (fastq, fastq.gz, fq, fq.gz).',
+			category: 'Input'
 		}
-		minShift: {
-			description: 'Set minimal interval size for CSI indices to 2^INT (if defined force to use csi)',
-			category: 'Tool option'
+		fastqR2: {
+			description: 'Input file with reads 2 (fastq, fastq.gz, fq, fq.gz).',
+			category: 'Input'
+		}
+		platform: {
+			description: 'Type of platform that produce reads [default: "AVITI"]',
+			category: 'Tool options'
+		}
+		fasta: {
+			description: 'Path to the reference file (format: fasta)',
+			category: 'Tool options'
+		}
+		fasta_l2b: {
+			description: 'Path to the reference file l2b index [default: fasta.l2b]',
+			category: 'Tool options'
+		}
+		fasta_mbw: {
+			description: 'Path to the reference file mbw index [default: fasta.mbw]',
+			category: 'Tool options'
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',
@@ -172,6 +204,10 @@ task index {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: minibwa:0.3]',
 			category: 'System'
 		}
 	}

@@ -1,7 +1,7 @@
 version 1.0
 
 # MobiDL 2.0 - MobiDL 2 is a collection of tools wrapped in WDL to be used in any WDL pipelines.
-# Copyright (C) 2021 MoBiDiC
+# Copyright (C) 2026 MoBiDiC
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,10 +18,10 @@ version 1.0
 
 task get_version {
 	meta {
-		author: "Oliver Ardouin"
+		authors: ["Oliver Ardouin", "Charles Van Goethem"]
 		email: "o-ardouin(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2022-03-16"
+		version: "0.1.0"
+		date: "2026-07-08"
 	}
 
 	input {
@@ -30,6 +30,7 @@ task get_version {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+        String apptainer_img = "fastp:1.3.6"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -43,12 +44,13 @@ task get_version {
 	>>>
 
 	output {
-		String version = read_string(stderr())
+		String version = stdout()
 	}
 
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+        docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -68,21 +70,26 @@ task get_version {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: fastp:1.3.6]',
+			category: 'System'
+		}
 	}
 }
 
-task fastp_pe {
+task fastp {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-07-29"
+		version: "0.1.3"
+		date: "2026-08-22"
 	}
 
 	input {
 		String path_exe = "fastp"
 
-		String? outputPath
+		String outputPath
+		String subdir = ""
 		String? sample
 		String subString = "(_S[0-9]+)?(_L[0-9][0-9][0-9])?(_R[12])?(_[0-9][0-9][0-9])?.(fastq|fq)(.gz)?"
 		String subStringReplace = ""
@@ -96,6 +103,7 @@ task fastp_pe {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+        String apptainer_img = "fastp:1.3.6"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -105,51 +113,54 @@ task fastp_pe {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	String baseName = if defined(sample) then sample else sub(basename(fastqR1),subString,subStringReplace)
-	String outputBase = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
-	String FastpJson = "~{outputBase}.fastp.json"
-	String FastpHtml = "~{outputBase}.fastp.html"
+	String outputBase = "~{outputPath}/~{subdir}/~{baseName}"
 
 	command <<<
 
-		if [[ ! -d ~{outputPath} ]]; then
-			mkdir -p ~{outputPath}
+		if [[ ! -d $(dirname ~{outputBase}) ]]; then
+			mkdir -p $(dirname ~{outputBase})
 		fi
 
 		~{path_exe} \
-			--in1 ~{fastqR1} \
-			--in2 ~{fastqR2} \
+			--thread ~{threads} \
+			--in1 "~{fastqR1}" \
+			--in2 "~{fastqR2}" \
 			~{true="--unpaired1" false="" unpaired1} \
 			~{true="--unpaired2" false="" unpaired2} \
-			--out1 ~{outputBase}.R1.fq.gz \
-			--out2 ~{outputBase}.R2.fq.gz \
-			--report_title ~{baseName} \
-			--json "~{FastpJson}" \
-			--html "~{FastpHtml}" \
-			--thread ~{threads}
-
-	>>>
+			--out1 "~{outputBase}.R1.fq.gz" \
+			--out2 "~{outputBase}.R2.fq.gz" \
+			--report_title "~{baseName}" \
+			--json "~{outputBase}.json" \
+			--html "~{outputBase}.html"
+    >>>
 
 	output {
 		File FastpR1 = "~{outputBase}.R1.fq.gz"
 		File FastpR2 = "~{outputBase}.R2.fq.gz"
-		File fastpJson = FastpJson
-		File fastpHtml = FastpHtml
+		File fastpJson = "~{outputBase}.json"
+		File fastpHtml = "~{outputBase}.html"
 	}
 
 	runtime {
+        bind_opt: "~{outputPath}/~{subdir}" + "," + "~{fastqR1}" + "," + "~{fastqR2}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+        docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "fastqc"]',
+			description: 'Path used as executable [default: "fastp"]',
 			category: 'System'
 		}
 		outputPath: {
 			description: 'Output path where files will be generated. [default: pwd()]',
 			category: 'Output path/name option'
 		}
+        subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
+			category: 'Output path/name option'
+        }
 		sample: {
 			description: 'Sample name to use for output file name [default: sub(basename(fastqR1),subString,"")]',
 			category: 'Output path/name option'
@@ -188,6 +199,10 @@ task fastp_pe {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: fastp:1.3.6]',
 			category: 'System'
 		}
 	}

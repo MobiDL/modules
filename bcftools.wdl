@@ -21,7 +21,7 @@ task get_version {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
 		version: "0.0.1"
-		date: "2020-11-20"
+		date: "2026-09-07"
 	}
 
 	input {
@@ -30,6 +30,7 @@ task get_version {
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "bcftools:1.23.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -39,7 +40,7 @@ task get_version {
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
 	command <<<
-		~{path_exe} --version
+		~{path_exe} --version | head -1
 	>>>
 
 	output {
@@ -49,6 +50,7 @@ task get_version {
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -68,290 +70,8 @@ task get_version {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
-	}
-}
-
-task index {
-	meta {
-		author: "Charles VAN GOETHEM"
-		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-07-24"
-	}
-
-	input {
-		String path_exe = "bcftools"
-
-		File in
-		String? outputPath
-
-		Boolean tabix = false
-		Boolean force = false
-		Int minShift = 14
-
-		Int threads = 1
-		Int memoryByThreads = 768
-		String? memory
-	}
-
-	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
-	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
-	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
-	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
-	Int memoryByThreadsMb = floor(totalMemMb/threads)
-
-	String ext = if tabix then ".tbi" else ".csi"
-	Boolean outputDef = defined(outputPath)
-	String outputRaw = if outputDef then outputPath + "/" + basename(in) else in
-	String outputIndex = outputRaw + ext
-
-	String minShiftOpt = if ! tabix then "--min-shift " + minShift else ""
-
-	command <<<
-
-		if [[ ! -f ~{outputRaw} ]]; then
-			mkdir -p $(dirname ~{outputRaw})
-			ln ~{in} ~{outputRaw}
-		fi
-
-		~{path_exe} index \
-			~{true="--tbi" false="--csi" tabix} \
-			~{true="--force" false="" force} \
-			~{minShiftOpt} \
-			--threads ~{threads - 1} \
-			-o ~{outputIndex} \
-			~{outputRaw}
-
-	>>>
-
-	output {
-		File vcf = "~{outputRaw}"
-		File index = "~{outputIndex}"
-	}
-
-	runtime {
-		cpu: "~{threads}"
-		requested_memory_mb_per_core: "${memoryByThreadsMb}"
-	}
-
-	parameter_meta {
-		path_exe: {
-			description: 'Path used as executable [default: "bcftools"]',
-			category: 'System'
-		}
-		in: {
-			description: "VCF/BCF file to index (extension: '.vcf.gz|.bcf')",
-			category: 'Required'
-		}
-		outputPath: {
-			description: "Path where was generated output [default: VCF path]",
-			category: 'Output path/name option'
-		}
-		tabix: {
-			description: "Generate TBI-format index for VCF files [default: CSI-format]",
-			category: 'Tool option'
-		}
-		force: {
-			description: "Overwrite index if it already exists [default: false]",
-			category: 'Tool option'
-		}
-		minShift: {
-			description: "Set minimal interval size for CSI indices to 2^INT (skipped if tabix used) [default: 14]",
-			category: 'Tool option'
-		}
-		threads: {
-			description: 'Sets the number of threads [default: 1]',
-			category: 'System'
-		}
-		memory: {
-			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
-			category: 'System'
-		}
-		memoryByThreads: {
-			description: 'Sets the total memory to use (in M) [default: 768]',
-			category: 'System'
-		}
-	}
-}
-
-# TODO:
-#	- simplify options :
-#		- remove opt : file-list (in worklow read file to convert into file list or reverse)
-#		- correction for options -i default value
-#		- need to test gvcf option more accuratly
-task merge {
-	meta {
-		author: "Charles VAN GOETHEM"
-		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2020-07-24"
-	}
-
-	input {
-		String path_exe = "bcftools"
-
-		Array[File] in
-		Array[File] index
-		String? outputPath
-		String prefix = "merge"
-
-		Boolean forceSamples = false
-		Boolean printHeader = false
-		File? useHeader
-		Boolean missingToRef = false
-		Array[String]? applyFilter
-		String filterLogic = "+"
-		File? referenceFasta
-		Boolean gvcf = false
-		String infoRules = "-"
-		File? fileList
-		String merge = "both"
-		Boolean noVersion = false
-		String outputType = "v"
-		String? regions
-		File? regionsFile
-
-		Int threads = 1
-		Int memoryByThreads = 768
-		String? memory
-	}
-
-	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
-	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
-	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
-	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
-	Int memoryByThreadsMb = floor(totalMemMb/threads)
-
-	String useHeaderOpt = if defined(useHeader) then "--use-header ~{useHeader} " else ""
-	String applyFilterOpt = if defined(applyFilter) then "--apply-filter '~{sep=',' applyFilter}' " else ""
-	String gvcfOpt = if gvcf then if defined(referenceFasta) then "--gvcf ~{referenceFasta} " else "--gvcf - " else ""
-	String fileListOpt = if defined(fileList) then "--file-list ~{fileList} " else ""
-	String regionsOpt = if defined(regions) then "--regions ~{regions} " else ""
-	String regionsFileOpt = if defined(regionsFile) then "--regions-file ~{regionsFile} " else ""
-
-	String ext = if outputType == "v" then ".vcf" else if outputType == "b" then ".bcf.gz" else if outputType == "u" then ".bcf" else ".vcf.gz"
-
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{prefix}~{ext}" else "~{prefix}~{ext}"
-
-	command <<<
-
-		if [[ ! -f ~{outputFile} ]]; then
-			mkdir -p $(dirname ~{outputFile})
-		fi
-
-		~{path_exe} merge \
-			~{true="--force-samples" false="" forceSamples} \
-			~{true="--print-header" false="" printHeader} \
-			~{useHeaderOpt} \
-			~{true="--missing-to-ref" false="" missingToRef} \
-			~{applyFilterOpt} \
-			~{gvcfOpt} \
-			~{fileListOpt} \
-			~{true="--no-version" false="" noVersion} \
-			~{regionsOpt} \
-			~{regionsFileOpt} \
-			--threads ~{threads - 1} \
-			--info-rules '~{infoRules}' \
-			--merge '~{merge}' \
-			--filter-logic '~{filterLogic}' \
-			-O '~{outputType}' \
-			-o ~{outputFile} \
-			~{sep=" \\\n\t" in}
-
-	>>>
-
-	output {
-		File outputMerge = "~{outputFile}"
-	}
-
-	runtime {
-		cpu: "~{threads}"
-		requested_memory_mb_per_core: "${memoryByThreadsMb}"
-	}
-
-	parameter_meta {
-		path_exe: {
-			description: 'Path used as executable [default: "bcftools"]',
-			category: 'System'
-		}
-		in: {
-			description: 'Array of files to merge together (extension: ".vcf.gz|.bcf")',
-			category: 'Required'
-		}
-		outputPath: {
-			description: 'Path where was generated output [default: VCF path]',
-			category: 'Output path/name option'
-		}
-		forceSamples: {
-			description: 'Resolve duplicate sample names [default: false]',
-			category: 'Tool option'
-		}
-		printHeader: {
-			description: 'Print only the merged header and exit [default: false]',
-			category: 'Tool option'
-		}
-		useHeader: {
-			description: 'Use the provided header [default: -]',
-			category: 'Tool option'
-		}
-		missingToRef: {
-			description: 'Assume genotypes at missing sites are 0/0 [default: false]',
-			category: 'Tool option'
-		}
-		applyFilter: {
-			description: 'Require at least one of the listed FILTER strings (e.g. "PASS,.")',
-			category: 'Tool option'
-		}
-		filterLogic: {
-			description: 'Remove filters if some input is PASS ("x"), or apply all filters ("+") [default: "+"]',
-			category: 'Tool option'
-		}
-		gvcf: {
-			description: 'Merge gVCF blocks, INFO/END tag is expected. Implies -i QS:sum,MinDP:min,I16:sum,IDV:max,IMF:max (#doubt) [default: false]',
-			category: 'Tool option'
-		}
-		referenceFasta: {
-			description: 'Reference used to merge in gvcf mode',
-			category: 'Tool option'
-		}
-		infoRules: {
-			description: 'Rules for merging INFO fields (method is one of sum,avg,min,max,join) or "-" to turn off the default [-]',
-			category: 'Tool option'
-		}
-		fileList: {
-			description: 'Read file names from the file',
-			category: 'Tool option'
-		}
-		merge: {
-			description: 'Allow multiallelic records for <snps|indels|both|all|none|id> [default: "both"]',
-			category: 'Tool option'
-		}
-		noVersion: {
-			description: 'Do not append version and command line to the header [default: false]',
-			category: 'Tool option'
-		}
-		outputType: {
-			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "v"]',
-			category: 'Tool option'
-		}
-		regions: {
-			description: "Restrict to comma-separated list of regions.",
-			category: 'Tool option'
-		}
-		regionsFile: {
-			description: "Restrict to regions listed in a file.",
-			category: 'Tool option'
-		}
-		threads: {
-			description: 'Sets the number of threads [default: 1]',
-			category: 'System'
-		}
-		memory: {
-			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
-			category: 'System'
-		}
-		memoryByThreads: {
-			description: 'Sets the total memory to use (in M) [default: 768]',
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: bcftools:1.23.1]',
 			category: 'System'
 		}
 	}
@@ -361,49 +81,46 @@ task norm {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2020-08-27"
+		version: "0.1.1"
+		date: "2026-09-15"
 	}
 
 	input {
 		String path_exe = "bcftools"
 
-		File in
+		File vcf
 		String outputPath
+		String subdir = ""
 		String? name
 		String subString = "\.(vcf|bcf)(\.gz)?$"
 		String subStringReplace = ""
 		String suffix = ".norm"
 
 		File refFasta
+		File refFai = refFasta + ".fai"
 
-		String? checkRef
-
-		Boolean removeDuplicates = false
-		String? rmDupType
-
-		Boolean splitMA = false
-		String multiallelicType = "both"
-
+		## Common options
 		Boolean version = true
-
-		Boolean normalize = true
-
 		String? regions
 		File? regionsFile
-
 		String? targets
 		File? targetsFile
+		String outputType = "z"
 
+		## Specific options
+		String? checkRef
+		Boolean removeDuplicates = false
+		String? rmDupType
+		Boolean splitMA = false
+		String multiallelicType = "both"
+		Boolean normalize = true
 		Boolean strictFilter = false
-		String outputType = "v"
-
 		Int siteWin = 1000
-		Int? ploidy
 
-		Int threads = 1
+		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "bcftools:1.23.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -412,11 +129,16 @@ task norm {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	Map[String,String] extType = {"v" : ".vcf","u" : ".bcf","z" : ".vcf.gz","b" : ".bcf.gz"}
+	Map[String,String] extType = {"v" : ".vcf", "u" : ".bcf", "z" : ".vcf.gz", "b" : ".bcf.gz"}
+	Map[String,String] idxType = {"v" : "", "u" : "csi", "z" : "tbi", "b" : "csi"}
+	Map[String,Boolean] idx = {"v" : false, "u" : true, "z" : true, "b" : true}
 
 	String ext = extType[outputType]
-	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{suffix}~{ext}" else "~{baseName}~{suffix}~{ext}"
+	String idxFmt = idxType[outputType]
+	Boolean index = idx[outputType]
+
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	String multiallelics = if splitMA then "-~{multiallelicType}" else "+~{multiallelicType}"
 
@@ -426,49 +148,38 @@ task norm {
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		# MEMO: From note at http://samtools.github.io/bcftools/howtos/FAQ.html#incorrect-nfields
-		#       bcftools does not support 'Number=G' definition with 'ploidy>2'
-		#       So 'bcftools norm' raise 'Error at chrN:XXXXXX, the tag PL has wrong number of fields'
-		# POSSIBLE SOLUCES:
-		# * Use '--force' ?
-		# * Remove tag with 'bcftools annotate --remove' ?
-		# * Re-header, specifying 'Number=.' for 'FORMAT/PL' ?
-		# -> Simpler to '--force' for now
-		#
-		force_norm=""
-		if [ ~{ploidy} -gt 2 ] ; then
-			force_norm="--force"
-		fi
-
 		~{path_exe} norm \
-			~{default="" "--check-ref " + checkRef} \
-			~{true="--remove-duplicates" false="" removeDuplicates} \
-			~{default="" "--rm-dup " + rmDupType} \
-			--fasta-ref ~{refFasta} \
-			--multiallelics ~{multiallelics} \
+			--output ~{outputFile} \
 			~{true="" false="--no-version" version} \
-			~{true="" false="--do-not-normalize" normalize} \
 			~{default="" "--regions " + regions} \
 			~{default="" "--regions-file " + regionsFile} \
 			~{default="" "--targets " + targets} \
 			~{default="" "--targets-file " + targetsFile} \
-			~{true="--strict-filter" false="" strictFilter} \
 			--output-type ~{outputType} \
-			--output ~{outputFile} \
+			~{true="-W" false="" index}~{idxFmt} \
+			--fasta-ref ~{refFasta} \
+			~{default="" "--check-ref " + checkRef} \
+			~{true="--remove-duplicates" false="" removeDuplicates} \
+			~{default="" "--rm-dup " + rmDupType} \
+			--multiallelics ~{multiallelics} \
+			~{true="" false="--do-not-normalize" normalize} \
+			~{true="--strict-filter" false="" strictFilter} \
 			--threads ~{threads - 1} \
 			--site-win ~{siteWin} \
-			$force_norm \
-			~{in}
+			~{vcf}
 
 	>>>
 
 	output {
-		File outputFile = outputFile
+		File outputvcf = outputFile
+		File? outputidx = outputFile + "." + idxFmt
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{vcf}" + "~{default='' ',' + regionsFile}"  + "~{default='' ',' + targetsFile}" 
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -476,7 +187,7 @@ task norm {
 			description: 'Path used as executable [default: "bcftools"]',
 			category: 'System'
 		}
-		in: {
+		vcf: {
 			description: "VCF/BCF file to left-align and normalize indels (extension: '.vcf.gz|.bcf')",
 			category: 'Required'
 		}
@@ -504,6 +215,34 @@ task norm {
 			description: 'Reference used to merge in gvcf mode',
 			category: 'Required'
 		}
+		refFai: {
+			description: 'Path to the reference file index (format: fai)',
+			category: 'Required'
+		}
+		version: {
+			description: 'Append version and command line to the header [default: true]',
+			category: 'Tool option (Common)'
+		}
+		regions: {
+			description: "Restrict to comma-separated list of regions",
+			category: 'Tool option (Common)'
+		}
+		regionsFile: {
+			description: "Restrict to regions listed in a file",
+			category: 'Tool option (Common)'
+		}
+		targets: {
+			description: "Similar to 'regions' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		targetsFile: {
+			description: "Similar to 'regionsFile' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		outputType: {
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
+		}
 		checkRef: {
 			description: 'Check REF alleles and exit (e), warn (w), exclude (x), or set (s) bad sites [default: e]',
 			category: 'Tool option'
@@ -524,32 +263,8 @@ task norm {
 			description: "Type of Multiallelics to treat for split/join (type: snps|indels|both|any) [default: both]",
 			category: 'Tool option'
 		}
-		version: {
-			description: 'Append version and command line to the header [default: true]',
-			category: 'Tool option'
-		}
 		normalize: {
 			description: 'Normalize indels (with -m or -c s) [default: true]',
-			category: 'Tool option'
-		}
-		outputType: {
-			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "v"]',
-			category: 'Tool option'
-		}
-		regions: {
-			description: "Restrict to comma-separated list of regions",
-			category: 'Tool option'
-		}
-		regionsFile: {
-			description: "Restrict to regions listed in a file",
-			category: 'Tool option'
-		}
-		targets: {
-			description: "Similar to 'regions' but streams rather than index-jumps",
-			category: 'Tool option'
-		}
-		targetsFile: {
-			description: "Similar to 'regionsFile' but streams rather than index-jumps",
 			category: 'Tool option'
 		}
 		strictFilter: {
@@ -572,63 +287,48 @@ task norm {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: bcftools:1.23.1]',
+			category: 'System'
+		}
 	}
 }
 
-task stats {
+task view {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2020-08-27"
+		version: "0.1.0"
+		date: "2026-09-15"
 	}
 
 	input {
 		String path_exe = "bcftools"
 
-		File in
-		String? outputPath
+		File vcf
+		String outputPath
+		String subdir = ""
 		String? name
 		String subString = "\.(vcf|bcf)(\.gz)?$"
 		String subStringReplace = ""
-		String ext = ".stats"
+		String suffix = ".view"
 
-		File refFasta
-		File refFai
-
-		Array[Float]? afBins
-		String? afTag
-
-		Boolean firstAllele = false
-
-		String collapse = "none"
-
-		Int depthMin = 0
-		Int depthMax = 500
-		Int depthBin = 1
-
-		File? exons
-
-		Array[String]? applyFilters
-
-		String? exclude
-		String? include
-
-		Boolean splitByID = false
-
-		Array[String] samples = ["\"-\""]
-
-		Array[String]? userTsTv
-
+		## Common options
+		Boolean version = true
 		String? regions
 		File? regionsFile
-
 		String? targets
 		File? targetsFile
+		String outputType = "z"
 
-		Int threads = 1
+		## Specific options
+		Boolean trimUnseen = false
+		String? include
+
+		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "bcftools:1.23.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -637,12 +337,16 @@ task stats {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{ext}" else "~{baseName}~{ext}"
+	Map[String,String] extType = {"v" : ".vcf", "u" : ".bcf", "z" : ".vcf.gz", "b" : ".bcf.gz"}
+	Map[String,String] idxType = {"v" : "", "u" : "csi", "z" : "tbi", "b" : "csi"}
+	Map[String,Boolean] idx = {"v" : false, "u" : true, "z" : true, "b" : true}
 
-	Boolean BoolAFBins = if defined(afBins) then true else false
-	Boolean BoolApplyFilters = if defined(applyFilters) then true else false
-	Boolean BoolUserTsTv = if defined(userTsTv) then true else false
+	String ext = extType[outputType]
+	String idxFmt = idxType[outputType]
+	Boolean index = idx[outputType]
+
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	command <<<
 
@@ -650,36 +354,32 @@ task stats {
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		~{path_exe} stats \
-			~{true="--af-bins " false="" BoolAFBins}~{default="" sep="," afBins} \
-			~{default="" "--af-tag " + afTag} \
-			~{true="--1st-allele-only" false ="" firstAllele} \
-			--collapse ~{collapse} \
-			--depth ~{depthMin},~{depthMax},~{depthBin} \
-			~{default="" "--exons " + exons} \
-			~{true="--apply-filters " false="" BoolApplyFilters}~{default="" sep="," applyFilters} \
-			~{default="" "--exclude " + exclude} \
-			~{default="" "--include " + include} \
-			~{true="--split-by-ID" false = "" splitByID} \
-			--samples ~{sep="," samples} \
-			~{true="--user-tstv " false="" BoolUserTsTv}~{default="" sep="," userTsTv} \
-			--fasta-ref ~{refFasta} \
+		~{path_exe} view \
+			~{true="" false="--no-version" version} \
 			~{default="" "--regions " + regions} \
 			~{default="" "--regions-file " + regionsFile} \
 			~{default="" "--targets " + targets} \
 			~{default="" "--targets-file " + targetsFile} \
+			--output-type ~{outputType} \
+			~{true="-W" false="" index}~{idxFmt} \
+			~{true="--trim-unseen-alleles" false="" trimUnseen} \
+			~{default="" '--include "' + include}~{true='"' false="" defined(include)} \
+			--output ~{outputFile} \
 			--threads ~{threads - 1} \
-			~{in} > ~{outputFile}
+			~{vcf}
 
 	>>>
 
 	output {
-		File outputFile = outputFile
+		File outputvcf = outputFile
+		File? outputidx = outputFile + "." + idxFmt
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcf}" + "~{default='' ',' + regionsFile}"  + "~{default='' ',' + targetsFile}" 
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -687,7 +387,7 @@ task stats {
 			description: 'Path used as executable [default: "bcftools"]',
 			category: 'System'
 		}
-		in: {
+		vcf: {
 			description: "VCF/BCF file to left-align and normalize indels (extension: '.vcf.gz|.bcf')",
 			category: 'Required'
 		}
@@ -707,88 +407,40 @@ task stats {
 			description: 'subString replace by this string [default: ""]',
 			category: 'Output path/name option'
 		}
-		ext: {
-			description: 'Extension use for the output file [default: ".stats"]',
+		suffix: {
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".view"]',
 			category: 'Output path/name option'
 		}
-		refFasta: {
-			description: 'Reference in fasta format',
-			category: 'Required'
-		}
-		refFai: {
-			description: 'Path to the reference file index (format: fai)',
-			category: 'Required'
-		}
-		afBins: {
-			description: 'Allele frequency bins',
-			category: 'Tool option'
-		}
-		afTag: {
-			description: 'Allele frequency tag to use',
-			category: 'Tool option'
-		}
-		firstAllele: {
-			description: 'Include only 1st allele at multiallelic sites',
-			category: 'Tool option'
-		}
-		collapse: {
-			description: 'Treat as identical records with <snps|indels|both|all|some|none> [default: none]',
-			category: 'Tool option'
-		}
-		depthMin: {
-			description: 'Minimum depth [default: 0]',
-			category: 'Tool option'
-		}
-		depthMax: {
-			description: 'Maximum depth [default: 500]',
-			category: 'Tool option'
-		}
-		depthBin: {
-			description: 'Bin size depth [default: 1]',
-			category: 'Tool option'
-		}
-		exons: {
-			description: 'Tab-delimited file with exons for indel frameshifts (chr,from,to; 1-based, inclusive, bgzip compressed)',
-			category: 'Tool option'
-		}
-		applyFilters: {
-			description: 'Require at least one of the listed FILTER strings',
-			category: 'Tool option'
-		}
-		exclude: {
-			description: 'Exclude sites for which the expression is true',
-			category: 'Tool option'
-		}
-		include: {
-			description: 'Select sites for which the expression is true',
-			category: 'Tool option'
-		}
-		splitByID: {
-			description: 'Collect stats for sites with ID separately (known vs novel)',
-			category: 'Tool option'
-		}
-		samples: {
-			description: 'List of samples for sample stats ("-" -> all samples)[default: ["-"]]',
-			category: 'Tool option'
-		}
-		userTsTv: {
-			description: 'Collect Ts/Tv stats for any tag using the given binning',
-			category: 'Tool option'
+		version: {
+			description: 'Append version and command line to the header [default: true]',
+			category: 'Tool option (Common)'
 		}
 		regions: {
 			description: "Restrict to comma-separated list of regions",
-			category: 'Tool option'
+			category: 'Tool option (Common)'
 		}
 		regionsFile: {
 			description: "Restrict to regions listed in a file",
-			category: 'Tool option'
+			category: 'Tool option (Common)'
 		}
 		targets: {
 			description: "Similar to 'regions' but streams rather than index-jumps",
-			category: 'Tool option'
+			category: 'Tool option (Common)'
 		}
 		targetsFile: {
 			description: "Similar to 'regionsFile' but streams rather than index-jumps",
+			category: 'Tool option (Common)'
+		}
+		outputType: {
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
+		}
+		trimUnseen: {
+			description: 'remove the unseen allele <*> or <NON_REF> at variant sites',
+			category: 'Tool option'
+		}
+		include: {
+			description: 'include sites for which this expression is true.',
 			category: 'Tool option'
 		}
 		threads: {
@@ -803,37 +455,44 @@ task stats {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: bcftools:1.23.1]',
+			category: 'System'
+		}
 	}
 }
 
-task view {
+task sort {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2021-03-26"
+		version: "0.1.0"
+		date: "2026-09-15"
 	}
 
 	input {
 		String path_exe = "bcftools"
 
-		File in
-		File index
-
+		File vcf
+		String outputPath
+		String subdir = ""
 		String? name
-		String? outputPath
 		String subString = "\.(vcf|bcf)(\.gz)?$"
 		String subStringReplace = ""
+		String suffix = ".sort"
 
-		String outputType = "v"
+		## Common options
+		Boolean version = true
+		String? regions
+		File? regionsFile
+		String? targets
+		File? targetsFile
+		String outputType = "z"
 
-		String? region
-		String? includeExp
-		String? excludeExp
-
-		Int threads = 1
+		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "bcftools:1.23.1"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -842,15 +501,16 @@ task view {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	Map[String,String] extType = {"v" : ".vcf","u" : ".bcf","z" : ".vcf.gz","b" : ".bcf.gz"}
+	Map[String,String] extType = {"v" : ".vcf", "u" : ".bcf", "z" : ".vcf.gz", "b" : ".bcf.gz"}
+	Map[String,String] idxType = {"v" : "", "u" : "csi", "z" : "tbi", "b" : "csi"}
+	Map[String,Boolean] idx = {"v" : false, "u" : true, "z" : true, "b" : true}
+
 	String ext = extType[outputType]
+	String idxFmt = idxType[outputType]
+	Boolean index = idx[outputType]
 
-	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}~{ext}" else "~{baseName}~{ext}"
-
-	Boolean regionBool = defined(region)
-	Boolean includeExpBool = defined(includeExp)
-	Boolean excludeExpBool = defined(excludeExp)
+	String baseName = if defined(name) then name else sub(basename(vcf),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	command <<<
 
@@ -858,23 +518,25 @@ task view {
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		~{path_exe} view \
-			~{default="" "--regions '" + region}~{true="'" false="" regionBool} \
-			~{default="" "--include '" + includeExp}~{true="'" false="" includeExpBool} \
-			~{default="" "--exclude '" + excludeExp}~{true="'" false="" excludeExpBool} \
+		~{path_exe} sort \
 			--output-type ~{outputType} \
-			--output-file ~{outputFile} \
-			~{in}
+			~{true="-W" false="" index}~{idxFmt} \
+			-m ~{totalMem} \
+			--output ~{outputFile} \
+			~{vcf}
 
 	>>>
 
 	output {
-		File vcf = "~{outputFile}"
+		File outputvcf = outputFile
+		File? outputidx = outputFile + "." + idxFmt
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{vcf}" 
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
 	}
 
 	parameter_meta {
@@ -882,13 +544,13 @@ task view {
 			description: 'Path used as executable [default: "bcftools"]',
 			category: 'System'
 		}
-		in: {
-			description: "VCF/BCF file to view (extension: '.vcf.gz|.bcf')",
+		vcf: {
+			description: "VCF/BCF file to left-align and normalize indels (extension: '.vcf.gz|.bcf')",
 			category: 'Required'
 		}
-		in: {
-			description: "VCF/BCF index file",
-			category: 'Required'
+		outputPath: {
+			description: 'Path where was generated output',
+			category: 'Output path/name option'
 		}
 		name: {
 			description: 'Output file base name [default: sub(basename(in),subString,"")].',
@@ -902,25 +564,13 @@ task view {
 			description: 'subString replace by this string [default: ""]',
 			category: 'Output path/name option'
 		}
-		outputPath: {
-			description: "Path where was generated output [default: VCF path]",
+		suffix: {
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".view"]',
 			category: 'Output path/name option'
 		}
 		outputType: {
-			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "v"]',
-			category: 'Tool option'
-		}
-		region: {
-			description: 'Filter on specific region (chr:start-end)',
-			category: 'Tool option'
-		}
-		includeExp: {
-			description: 'Select sites for which the expression is true',
-			category: 'Tool option'
-		}
-		excludeExp: {
-			description: 'Exclude sites for which the expression is true',
-			category: 'Tool option'
+			description: '"b" compressed BCF; "u" uncompressed BCF; "z" compressed VCF; "v" uncompressed VCF [default: "z"]',
+			category: 'Tool option (Common)'
 		}
 		threads: {
 			description: 'Sets the number of threads [default: 1]',
@@ -932,6 +582,10 @@ task view {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: bcftools:1.23.1]',
 			category: 'System'
 		}
 	}

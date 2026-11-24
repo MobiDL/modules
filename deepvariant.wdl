@@ -1,7 +1,7 @@
 version 1.0
 
 # MobiDL 2.0 - MobiDL 2 is a collection of tools wrapped in WDL to be used in any WDL pipelines.
-# Copyright (C) 2021 MoBiDiC
+# Copyright (C) 2026 MoBiDiC
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,16 +20,17 @@ task get_version {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2021-03-01"
+		version: "0.1.0"
+		date: "2026-09-14"
 	}
 
 	input {
-		String path_exe = "sed"
+		String path_exe = "deepvariant"
 
 		Int threads = 1
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "deepvariant:1.9.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -49,11 +50,13 @@ task get_version {
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+		queue: "avx"
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "sed"]',
+			description: 'Path used as executable [default: "deepvariant"]',
 			category: 'System'
 		}
 		threads: {
@@ -68,32 +71,47 @@ task get_version {
 			description: 'Sets the total memory to use (in M) [default: 768]',
 			category: 'System'
 		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: deepvariant:1.9.0]',
+			category: 'System'
+		}
 	}
 }
 
-task sedReplace {
+task deepvariant {
 	meta {
 		author: "Charles VAN GOETHEM"
 		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.1"
-		date: "2021-03-01"
+		version: "0.1.0"
+		date: "2026-09-15"
 	}
 
 	input {
-		String path_exe = "sed"
+		String path_exe = "deepvariant"
 
-		File in
-		String? outputPath
+		File bam
+		File bai = bam + ".bai"
+
+		String outputPath
+		String subdir = ""
 		String? name
-		String subString = ""
-		String subStringReplace = ""
+		String suffix = ".dv"
 
-		String expression1 = ""
-		String expression2 = ""
+		File refFasta
+		File refFai = refFasta + ".fai"
 
-		Int threads = 1
+		Boolean gunzip = true
+
+		Array[String]? postprocess_variants_extra_args
+
+		File? bed
+		
+		String model = "WES"
+
+		Int threads = 12
 		Int memoryByThreads = 768
 		String? memory
+		String apptainer_img = "deepvariant:1.9.0"
 	}
 
 	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
@@ -102,134 +120,85 @@ task sedReplace {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseName = if defined(name) then name else sub(basename(in),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
+	String baseName = if defined(name) then name else sub(basename(bam),"\.(bam|cram)$","")
+	String ext = if gunzip then ".vcf.gz" else ".vcf"
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}~{suffix}~{ext}"
 
 	command <<<
-
 		if [[ ! -d $(dirname ~{outputFile}) ]]; then
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
 		~{path_exe} \
-			-e 's/~{expression1}/~{expression2}/g' \
-			~{in} > ~{outputFile}
-
+			--reads ~{bam} \
+			--ref ~{refFasta} \
+			--model_type ~{model} \
+			~{default="" "--regions " + bed} \
+			~{true="--postprocess_variants_extra_args" false="" defined(postprocess_variants_extra_args)} ~{default=""  sep="," postprocess_variants_extra_args} \
+			--num_shards ~{threads} \
+			--output_vcf ~{outputFile}
 	>>>
 
 	output {
-		File outputFile = outputFile
+		File outputVcf = outputFile
+		File? outputVcfIdx = outputFile + ".tbi"
 	}
 
 	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{bam}" + "~{default='' ',' + bed}"
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+		queue: "avx"  ## https://cromwell.readthedocs.io/en/latest/RuntimeAttributes/
 	}
 
 	parameter_meta {
 		path_exe: {
-			description: 'Path used as executable [default: "sed"]',
+			description: 'Path used as executable [default: "deepvariant"]',
 			category: 'System'
 		}
-		in: {
-			description: "File used as input",
+		bam: {
+			description: 'Bam file.',
+			category: 'Required'
+		}
+		bai: {
+			description: 'Index for the alignement input file to recalibrate.',
 			category: 'Required'
 		}
 		outputPath: {
-			description: 'Output path',
+			description: 'Output path where bam will be generated.',
+			category: 'Output path/name option'
+		}
+		subdir: {
+			description: 'Subdirectory where to write output. [default: ""]',
 			category: 'Output path/name option'
 		}
 		name: {
-			description: 'Output name',
+			description: 'Output file base name [default: sub(basename(bam),"\.(bam|cram)$","")].',
 			category: 'Output path/name option'
 		}
-		subString: {
-			description: 'Substring to edit from input file to create output [default: ""]',
+		suffix: {
+			description: 'Suffix to add for the output file (e.g namesuffix.vcf)[default: ".dv"]',
 			category: 'Output path/name option'
 		}
-		subStringReplace: {
-			description: 'Substring used to edit input file [default: ""]',
-			category: 'Output path/name option'
-		}
-		expression1: {
-			description: 'Expression to replace [default: ""]',
-			category: ''
-		}
-		expression2: {
-			description: 'Expression used for replace [default: ""]',
-			category: ''
-		}
-		threads: {
-			description: 'Sets the number of threads [default: 1]',
-			category: 'System'
-		}
-		memory: {
-			description: 'Sets the total memory to use ; with suffix M/G [default: (memoryByThreads*threads)M]',
-			category: 'System'
-		}
-		memoryByThreads: {
-			description: 'Sets the total memory to use (in M) [default: 768]',
-			category: 'System'
-		}
-	}
-}
-
-task getExpressionFromString {
-	meta {
-		author: "Charles VAN GOETHEM"
-		email: "c-vangoethem(at)chu-montpellier.fr"
-		version: "0.0.2"
-		date: "2021-05-07"
-	}
-
-	input {
-		String path_exe = "sed"
-
-		String in
-
-		String regexp = ".*\\.\\(.*\\)"
-
-		Int threads = 1
-		Int memoryByThreads = 768
-		String? memory
-	}
-
-	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
-	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
-	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
-	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
-	Int memoryByThreadsMb = floor(totalMemMb/threads)
-
-	command <<<
-
-		~{path_exe} 's/~{regexp}/\1/' <<< ~{in}
-
-	>>>
-
-	output {
-		String result = read_string(stdout())
-	}
-
-	runtime {
-		cpu: "~{threads}"
-		requested_memory_mb_per_core: "${memoryByThreadsMb}"
-	}
-
-	parameter_meta {
-		path_exe: {
-			description: 'Path used as executable [default: "sed"]',
-			category: 'System'
-		}
-		in: {
-			description: "String used as input",
+		refFasta: {
+			description: 'Path to the reference file (format: fasta)',
 			category: 'Required'
 		}
-		regexp: {
-			description: 'Expression to replace [default: ".*\.\(.*\)"]',
-			category: ''
+		refFai: {
+			description: 'Path to the reference file index (format: fai)',
+			category: 'Required'
+		}
+		bed: {
+			description: "Space-separated list of regions we want to process (bed or intervals)",
+			category: 'Tool option'
+		}
+		model: {
+			description: "Type of model to use for variant calling. (default : WES)",
+			category: 'Tool option'
 		}
 		threads: {
-			description: 'Sets the number of threads [default: 1]',
+			description: 'Sets the number of threads [default: 12]',
 			category: 'System'
 		}
 		memory: {
@@ -238,6 +207,10 @@ task getExpressionFromString {
 		}
 		memoryByThreads: {
 			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+		apptainer_img: {
+			description: 'Sets the apptainer image you want to use [default: deepvariant:1.9.0]',
 			category: 'System'
 		}
 	}

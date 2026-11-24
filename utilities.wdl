@@ -328,6 +328,7 @@ task concatenateFiles {
 		String? name
 		String subString = "^[0-9]+\-"
 		String subStringReplace = ""
+		String ext = ".gz"
 
 		Int threads = 1
 		Int memoryByThreads = 768
@@ -340,18 +341,25 @@ task concatenateFiles {
 	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
 	Int memoryByThreadsMb = floor(totalMemMb/threads)
 
-	String baseName = if defined(name) then name else sub(basename(in[0]),subString,subStringReplace)
-	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
+	# String baseName = if defined(name) then name else sub(basename(in[0]),subString,subStringReplace)
+	# String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
 
 	String cmd_exe = if defined(exe) then exe else if gzip then "zcat" else "cat"
+	String compress = if gzip then " | gzip " else ""
+
+	String baseNameTemp = if defined(name) then name else sub(basename(in[0]),subString,subStringReplace)
+	String baseName = if gzip then sub(baseNameTemp,ext,"") else "~{baseNameTemp}~{ext}"
+	String outputFile = if defined(outputPath) then "~{outputPath}/~{baseName}" else "~{baseName}"
 
 	command <<<
-
+		echo "name: ~{name}"
+		echo "baseNameTemp: ~{baseNameTemp}"
+		echo "baseName: ~{baseName}"
 		if [[ ! -d $(dirname ~{outputFile}) ]]; then
 			mkdir -p $(dirname ~{outputFile})
 		fi
 
-		~{cmd_exe} ~{sep=" " in} > ~{outputFile}
+		~{cmd_exe} ~{sep=" " in} ~{compress} > "~{outputFile}"
 
 	>>>
 
@@ -1758,59 +1766,113 @@ task mkDir {
 	}
 }
 
-task checksum {
+task rm_files {
 	meta {
-		author: "Felix Vandermeeren"
-		email: "felix.vandermeeren(at)chu-montpellier.fr"
-		version: "0.0.5"
-		date: "2024-01-10"
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.0.1"
+		date: "2026-07-15"
 	}
 
 	input {
-		Array[File]+ filesToCheck
-		String path_exe = "md5sum"
-		String outputPath = "./"
+		Array[String] files
 
 		Int threads = 1
 		Int memoryByThreads = 768
-		String? memory
 	}
-
-	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
-	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
-	Int memoryValue = sub(totalMem, "M|G", "")
-	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
-	Int memoryByThreadsMb = floor(totalMemMb/threads)
-
-	String OutFile = "~{outputPath}/Checksums.txt"
-
-	# ENH: Find a way to quote optional variables correctly ?
-	# Format of (tab-separated) outfile MUST be as follow:
-	# (otherwise corresponding section in 'custom multiQC' will be broken)
-	# - Header = fileName ; md5sum
-	# - Example_value = hg19.fa ; 7c1739fd43764bd5e3b9b76ce8635bf0
 
 	command <<<
-		set -eou pipefail
-
-		if [[ ! -d "~{outputPath}" ]]; then
-			mkdir --parents "~{outputPath}"
-		fi
-
-		echo ~{sep=" " filesToCheck} |
-			xargs --max-args=1 --max-procs "~{threads}" "~{path_exe}" |
-			sed 's/  /\t/' |
-			awk -F"\t" -v OFS="\t" '{n=split($2,a,"/"); print a[n],$1}' |
-			sort -k1,1 |
-			sed '1i fileName\tmd5sum' > "~{OutFile}"
+		declare -a arr=("~{sep='" "' files}") 
+		for f in "${arr[@]}"; do 
+			if [ -d ${f} ]; then
+				rm -r "${f}"
+			else
+				rm "${f}"
+			fi
+		done
 	>>>
-
-	output {
-		File outFile = OutFile
-	}
 
 	runtime {
 		cpu: "~{threads}"
 		requested_memory_mb_per_core: "${memoryByThreads}"
+	}
+
+	parameter_meta {
+		files: {
+			description: 'Array of files/directory to remove',
+			category: 'Input'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
+	}
+}
+
+# WARNING
+# This task is obsolete since WDL 1.1 specifications.
+# Cromwell 92, the first version to support WDL 1.1, has an error with containers (see: https://github.com/broadinstitute/cromwell/issues/7846).
+# Therefore, we must use a previous version of Cromwell, which does not support WDL 1.1 specifications.
+task suffixArray {
+	meta {
+		author: "Charles VAN GOETHEM"
+		email: "c-vangoethem(at)chu-montpellier.fr"
+		version: "0.0.2"
+		date: "2026-08-10"
+	}
+
+	input {
+		Array[String] array
+        String suffix
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "ubuntu:22.04"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"([0-9]+)(M|G)", "$1")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	command <<<
+		for knownsite in $(jq -r '.[]' ~{write_json(array)}); do
+			echo $knownsite"~{suffix}"
+		done
+	>>>
+
+	output {
+		Array[String] array_suffix = read_lines(stdout())
+	}
+
+	runtime {
+		cpu: "~{threads}"
+		requested_memory_mb_per_core: "${memoryByThreadsMb}"
+		docker: "~{apptainer_img}"
+	}
+
+	parameter_meta {
+		array: {
+			description: 'Array of string',
+			category: 'Input'
+		}
+		suffix: {
+			description: 'Suffix to add to all element of the array',
+			category: 'Input'
+		}
+		threads: {
+			description: 'Sets the number of threads [default: 1]',
+			category: 'System'
+		}
+		memoryByThreads: {
+			description: 'Sets the total memory to use (in M) [default: 768]',
+			category: 'System'
+		}
 	}
 }
