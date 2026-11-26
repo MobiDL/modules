@@ -1603,3 +1603,69 @@ task mergeVcfs  {
 	}
 }
 
+task collectHsMetrics {
+	meta {
+		author: "David BAUX"
+		email: "d-baux(at)chu-montpellier.fr"
+		version: "0.0.1"
+		date: "2023-09-04"
+	}
+	input {
+		String path_exe = "gatk"
+
+		File bamFile
+		File bamIndex
+		File targetIntervals
+		File baitIntervals = targetIntervals
+		String outputPath = "."
+		String subdir = ""
+		String? name
+		String subString = "\.(bam)(.gz)?$"
+		String subStringReplace = ""
+
+		File refFasta
+		File refFai
+		Int coverageCap = 1000
+
+		Int threads = 1
+		Int memoryByThreads = 768
+		String? memory
+		String apptainer_img = "gatk4:4.6.2.0"
+	}
+
+	String totalMem = if defined(memory) then memory else memoryByThreads*threads + "M"
+	Boolean inGiga = (sub(totalMem,"([0-9]+)(M|G)", "$2") == "G")
+	Int memoryValue = sub(totalMem,"M|G", "")
+	Int totalMemMb = if inGiga then memoryValue*1024 else memoryValue
+	Int memoryByThreadsMb = floor(totalMemMb/threads)
+
+	String baseName = if defined(name) then name else sub(basename(bamFile),subString,subStringReplace)
+	String outputFile = "~{outputPath}/~{subdir}/~{baseName}_hs_metrics.txt"
+
+	command <<<
+
+		if [[ ! -d $(dirname ~{outputFile}) ]]; then
+			mkdir -p $(dirname ~{outputFile})
+		fi
+
+		~{path_exe} CollectHsMetrics \
+		-R ~{refFasta} \
+		-I ~{bamFile} \
+		-O ~{outputFile} \
+		--BAIT_INTERVALS "~{baitIntervals}" \
+		--TARGET_INTERVALS "~{targetIntervals}" \
+		--COVERAGE_CAP "~{coverageCap}"
+
+	>>>
+
+	output {
+		File outFile = outputFile
+	}
+
+	runtime {
+		bind_opt: "~{outputPath}/~{subdir}" + "," + "~{refFasta}" + "," + "~{bamFile}"
+		cpu: threads
+		requested_memory_mb_per_core: "~{memoryByThreadsMb}"
+		container: "~{apptainer_img}"
+	}
+}

@@ -1,0 +1,11 @@
+# /!\ Before running tests: isolate task in 'temp.wdl'
+# /!\ For 'special' tests to work, have to use 'pytest --kwd --basetemp=/tmp'
+
+- name: collectHsMetrics
+  tags:
+    - task_level
+    - collectHsMetrics
+  command: bash -c "tsk=collectHsMetrics && miniwdl run -d out-miniwdl/. --no-cache --verbose --no-quant-check --cfg tests/slurm.cfg --input tests/gatk4/${tsk}_inputs.json --task $tsk GATK4.wdl"
+  files:
+    - path: out-miniwdl/out/outFile/sample_hs_metrics.txt
+      # md5sum: Cannot checksum cuz date inside file

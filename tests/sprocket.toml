@@ -1,0 +1,68 @@
+# Set the default backend to Slurm + Apptainer.
+[run.backends.default]
+type = "slurm_apptainer"
+
+# The Slurm partition used by default for task execution.
+#
+# This parameter is optional. If it's absent and no other applicable
+# partitions are specified, jobs will be submitted to your Slurm cluster's
+# default partition.
+default_slurm_partition.name = "test"
+# The largest number of CPUs and memory that can be reserved for a single job
+# on this partition.
+#
+# These parameters are optional, and should be set according to site-specific
+# information about the hosts available to dispatch work from the partition.
+# They can also be set for the other types of partitions, but this example
+# leaves them unconstrained by default.
+default_slurm_partition.max_cpu_per_task = 48
+default_slurm_partition.max_memory_per_task = "96 GB"
+
+# The Slurm partition used for short tasks.
+#
+# This parameter is optional, and overrides `default_slurm_partition`.
+#short_task_slurm_partition.name = "short"
+
+# The Slurm partition used for GPU tasks.
+#
+# This parameter is optional, and overrides `default_slurm_partition` and
+# `short_task_slurm_partition`.
+#gpu_slurm_partition.name = "gpu"
+
+# The Slurm partition used for FPGA tasks.
+#
+# This parameter is optional, and overrides `default_slurm_partition` and
+# `short_task_slurm_partition`.
+#fpga_slurm_partition.name = "fpga"
+
+# The maximum number of concurrent Slurm operations the backend will perform.
+# Defaults to `10`. Consider raising this for large-scale workflow execution.
+max_concurrency = 10
+
+# Prefix added to every Slurm job name. Useful for identifying Sprocket jobs
+# in `squeue` output (e.g., `squeue -n "sprocket*"`).
+job_name_prefix = "sprocket"
+
+# Task monitor polling interval in seconds. Defaults to `30`.
+interval = 30
+
+# Settings related to `sbatch`.
+[run.backends.default.sbatch]
+# Additional command-line arguments to pass to `sbatch` when submitting jobs
+# to Slurm.
+args = ["--time=60"]
+
+# Settings related to `apptainer`.
+[run.backends.default.apptainer]
+# Additional command-line arguments to pass to `apptainer exec` when executing
+# tasks. Each entry is passed as one literal argument, without shell expansion
+# or splitting, so use a separate entry for each argument.
+extra_args = ["--hostname=my_host"]
+
+# Path to the Apptainer (or Singularity) executable. Defaults to `"apptainer"`.
+# Set to `"singularity"` or a full path if the executable is not on `PATH`.
+executable = "apptainer"
+
+# Directory for caching pulled `.sif` images. Relative paths are relative to the
+# output directory. Defaults to `cache/images` in the output directory.
+#image_cache_dir = "/shared/containers/cache"
