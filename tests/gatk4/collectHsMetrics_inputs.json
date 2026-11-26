@@ -1,8 +1,8 @@
 {
-  "bamFile": "https://github.com/MobiDL/DeepSomatic/raw/refs/tags/v0.1.0/tests/bam/sample.bam",
-  "bamIndex": "https://github.com/MobiDL/DeepSomatic/raw/refs/tags/v0.1.0/tests/bam/sample.bam.bai",
-  "targetIntervals": "https://github.com/MobiDL/DeepSomatic/raw/refs/tags/v0.1.0/tests/bed/test.interval_list",
-  "refFasta": "https://github.com/MobiDL/DeepSomatic/raw/refs/tags/v0.1.0/tests/fasta/chr.fa",
-  "refFai": "https://github.com/MobiDL/DeepSomatic/raw/refs/tags/v0.1.0/tests/fasta/chr.fa.fai",
+  "bamFile": "https://github.com/MobiDL/tests_dataset/raw/refs/heads/main/smallest/bam/sample.bam",
+  "bamIndex": "https://github.com/MobiDL/tests_dataset/raw/refs/heads/main/smallest/bam/sample.bam.bai",
+  "targetIntervals": "https://github.com/MobiDL/tests_dataset/raw/refs/heads/main/smallest/bed/test.interval_list",
+  "refFasta": "https://github.com/MobiDL/tests_dataset/raw/refs/heads/main/smallest/fasta/chr.fa",
+  "refFai": "https://github.com/MobiDL/tests_dataset/raw/refs/heads/main/smallest/fasta/chr.fa.fai",
   "apptainer_img": "quay.io/biocontainers/gatk4:4.6.2.0--py310hdfd78af_1"
 }
